@@ -5,13 +5,15 @@
   width="72"
 />
 
-# Bloom
+# Zvuk (Not conformed)
+
+> **Zvuk (Not conformed)** is an open-source Windows utility forked from **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)** under the **GPLv3** license. It adds new notch views: Power, Wallpaper, Apps (launcher search), and Media (user-attached apps). See [CREDITS.md](CREDITS.md) for full attribution.
 
 <br/>
 
 <!-- HERO SHOWCASE — full-width cinematic shot or video -->
 <!-- ![Hero](your-hero-url) -->
-<img width="1920" height="1080" alt="Bloom Hero" src="https://github.com/user-attachments/assets/22041f25-a69e-457d-80d9-7dfbfbed2d29" />
+<img width="1920" height="1080" alt="Zvuk Hero" src="https://github.com/user-attachments/assets/22041f25-a69e-457d-80d9-7dfbfbed2d29" />
 
 <video width="1920" height="1080" src="https://github.com/user-attachments/assets/fa7f949b-d9c3-4a92-b00d-e1132c0f3ff1">
 
@@ -19,7 +21,7 @@
 
 ---
 
-Bloom makes your Windows desktop feel alive.
+Zvuk makes your Windows desktop feel alive.
 
 Every transition is a physics simulation.
 Every element responds to touch.

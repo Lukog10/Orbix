@@ -1,8 +1,8 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "bloom",
+	"productName": "Zvuk",
 	"version": "3.9.2",
-	"identifier": "com.sehaz.bloom",
+	"identifier": "com.zvuk.app",
 	"build": {
 		"beforeDevCommand": "bun run dev",
 		"devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
 		"windows": [
 			{
 				"label": "main",
-				"title": "bloom",
+				"title": "Zvuk",
 				"width": 1920,
 				"height": 420,
 				"x": 0,
@@ -34,7 +34,7 @@
 			},
 			{
 				"label": "settings",
-				"title": "Settings",
+				"title": "Zvuk Settings",
 				"url": "settings.html",
 				"width": 620,
 				"height": 480,
@@ -54,7 +54,7 @@
 			},
 			{
 				"label": "overlay",
-				"title": "Overlay",
+				"title": "Zvuk Overlay",
 				"url": "overlay.html",
 				"width": 1920,
 				"height": 1080,
@@ -75,7 +75,7 @@
 			},
 			{
 				"label": "dock",
-				"title": "Bloom Dock",
+				"title": "Zvuk Dock",
 				"url": "dock.html",
 				"width": 1920,
 				"height": 600,
@@ -103,11 +103,11 @@
 		"active": true,
 		"createUpdaterArtifacts": true,
 		"targets": "all",
-		"publisher": "Sehajveer Singh",
-		"copyright": "Copyright © 2026 Sehajveer Singh",
+		"publisher": "Zvuk Contributors",
+		"copyright": "Copyright © 2026 Zvuk Contributors. Portions Copyright © 2026 Sehajveer Singh.",
 		"category": "Utility",
-		"shortDescription": "A notch and dock for Windows",
-		"longDescription": "Bloom replaces the Windows taskbar with a dock and adds a notch for media, quick controls and status.",
+		"shortDescription": "A notch and dock for Windows (fork of Bloom)",
+		"longDescription": "Zvuk replaces the Windows taskbar with a dock and adds an animated notch for media, quick controls, and status. Based on Bloom.",
 		"windows": {
 			"webviewInstallMode": {
 				"type": "embedBootstrapper"

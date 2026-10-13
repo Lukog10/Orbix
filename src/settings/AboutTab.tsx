@@ -37,7 +37,7 @@ export function AboutTab({
 			case "available":
 				return `Update Available (v${updateVersion})`;
 			case "uptodate":
-				return "Bloom is up to date";
+				return "Zvuk is up to date";
 			case "downloading":
 				return "Downloading Update...";
 			case "installing":
@@ -69,18 +69,18 @@ export function AboutTab({
 	return (
 		<div className="about-tab-container">
 			<div className="about-header">
-				<img src="/bloom.png" className="about-logo" alt="Bloom Logo" draggable={false} />
-				<h1 className="about-title">Bloom</h1>
+				<img src="/bloom.png" className="about-logo" alt="Zvuk Logo" draggable={false} />
+				<h1 className="about-title">Zvuk</h1>
 				<p className="about-version">Version {appVersion}</p>
 				<p className="about-credit">
-					Made with <span className="about-heart">❤️</span> by{" "}
+					Based on{" "}
 					<button
 						className="about-author"
-						onClick={() => openUrl("https://github.com/SehajveerSingh2005")}
-						title="sehaz on GitHub"
+						onClick={() => openUrl("https://github.com/SehajveerSingh2005/bloom")}
+						title="Bloom on GitHub"
 					>
 						<GithubIcon size={12} />
-						<span>sehaz</span>
+						<span>Bloom by Sehajveer Singh</span>
 					</button>
 				</p>
 			</div>
