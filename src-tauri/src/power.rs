@@ -3,6 +3,11 @@ use std::process::Command;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[link(name = "user32")]
+extern "system" {
+    fn LockWorkStation() -> windows::core::BOOL;
+}
+
 #[tauri::command]
 pub fn power_shutdown() -> Result<(), String> {
     Command::new("shutdown")
@@ -36,13 +41,19 @@ pub fn power_sleep() -> Result<(), String> {
 #[tauri::command]
 pub fn power_lock() -> Result<(), String> {
     unsafe {
-        let res = windows::Win32::UI::WindowsAndMessaging::LockWorkStation();
+        let res = LockWorkStation();
         if res.as_bool() {
-            Ok(())
-        } else {
-            Err("Failed to lock workstation".to_string())
+            return Ok(());
         }
     }
+
+    // Fallback via rundll32
+    Command::new("rundll32.exe")
+        .args(["user32.dll,LockWorkStation"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map_err(|e| format!("Failed to lock workstation: {e}"))?;
+    Ok(())
 }
 
 #[tauri::command]

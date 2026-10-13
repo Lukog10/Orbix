@@ -27,7 +27,7 @@ pub fn get_current_wallpaper() -> Result<String, String> {
         if RegOpenKeyExW(
             HKEY_CURRENT_USER,
             windows::core::PCWSTR(subkey.as_ptr()),
-            0,
+            Some(0),
             KEY_READ,
             &mut hkey,
         )
@@ -69,7 +69,7 @@ pub fn get_current_wallpaper() -> Result<String, String> {
             Some(buffer.as_mut_ptr() as *mut _),
             SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
         );
-        if success.as_bool() {
+        if success.is_ok() {
             let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
             return Ok(String::from_utf16_lossy(&buffer[..len]));
         }
@@ -216,7 +216,7 @@ pub fn set_wallpaper(path: String) -> Result<(), String> {
             SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
         );
 
-        if success.as_bool() {
+        if success.is_ok() {
             Ok(())
         } else {
             Err("Failed to set desktop wallpaper via SystemParametersInfo".to_string())
