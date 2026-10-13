@@ -28,6 +28,7 @@ export function useSettings() {
 	const [autostart, setAutostart] = useState(false);
 	const [weatherEnabled, setWeatherEnabled] = useState(true);
 	const [calendarEnabled, setCalendarEnabled] = useState(true);
+	const [powerModeEnabled, setPowerModeEnabled] = useState(true);
 	const [timerSoundEnabled, setTimerSoundEnabled] = useState(
 		() => localStorage.getItem("bloom-timer-sound-enabled") !== "false"
 	);
@@ -171,6 +172,7 @@ export function useSettings() {
 
 			apply(getVal("bloom-weather-enabled"), setWeatherEnabled, readBool);
 			apply(getVal("bloom-calendar-enabled"), setCalendarEnabled, readBool);
+			apply(getVal("bloom-power-mode-enabled"), setPowerModeEnabled, readBool);
 			apply(getVal("bloom-timer-sound-enabled"), setTimerSoundEnabled, readBool);
 			apply(getVal("bloom-music-mode-enabled"), setMusicModeEnabled, readBool);
 			apply(getVal("bloom-music-compact-notch"), setMusicCompactNotch, readBool);
@@ -420,6 +422,12 @@ export function useSettings() {
 		const next = !calendarEnabled;
 		setCalendarEnabled(next);
 		saveSetting("bloom-calendar-enabled", String(next));
+	};
+
+	const togglePowerMode = () => {
+		const next = !powerModeEnabled;
+		setPowerModeEnabled(next);
+		saveSetting("bloom-power-mode-enabled", String(next));
 	};
 
 	const toggleTimerSound = () => {
@@ -844,6 +852,8 @@ export function useSettings() {
 		handleNotchEdgeDelayChange,
 		calendarEnabled,
 		toggleCalendar,
+		powerModeEnabled,
+		togglePowerMode,
 		timerSoundEnabled,
 		toggleTimerSound,
 		musicModeEnabled,

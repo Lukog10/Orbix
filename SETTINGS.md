@@ -59,6 +59,7 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 | Key                         | Type                 | Default  | Description                                                           |
 | --------------------------- | -------------------- | -------- | --------------------------------------------------------------------- |
 | `bloom-calendar-enabled`    | `"true"` / `"false"` | `"true"` | Enable calendar/timer mode in the notch.                              |
+| `bloom-power-mode-enabled`   | `"true"` / `"false"` | `"true"` | Enable power menu mode (shutdown, restart, sleep, lock, switch user). |
 | `bloom-music-mode-enabled`  | `"true"` / `"false"` | `"true"` | Enable interactive music media widget.                                |
 | `bloom-music-compact-notch` | `"true"` / `"false"` | `"true"` | Show compact music display (visualizer + artwork) in collapsed notch. |
 

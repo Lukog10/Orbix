@@ -10,6 +10,7 @@ import {
 	CloudSun,
 	Timer,
 	Archive,
+	Power,
 	X
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
@@ -23,6 +24,8 @@ interface NotchTabProps {
 	handleNotchEdgeDelayChange: (val: number) => void;
 	calendarEnabled: boolean;
 	toggleCalendar: () => void;
+	powerModeEnabled: boolean;
+	togglePowerMode: () => void;
 	timerSoundEnabled: boolean;
 	toggleTimerSound: () => void;
 	musicModeEnabled: boolean;
@@ -64,6 +67,8 @@ export function NotchTab({
 	handleNotchEdgeDelayChange,
 	calendarEnabled,
 	toggleCalendar,
+	powerModeEnabled,
+	togglePowerMode,
 	timerSoundEnabled,
 	toggleTimerSound,
 	musicModeEnabled,
@@ -133,6 +138,13 @@ export function NotchTab({
 				<SettingRow icon={Calendar} label="Calendar & Timer" desc="Enable productivity split-view">
 					<label className="toggle-switch">
 						<input type="checkbox" checked={calendarEnabled} onChange={toggleCalendar} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Power} label="Power Menu" desc="Hold to shutdown, restart, sleep, lock or switch user">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={powerModeEnabled} onChange={togglePowerMode} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>

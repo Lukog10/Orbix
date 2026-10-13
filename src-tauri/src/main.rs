@@ -2,6 +2,7 @@
 
 mod commands;
 mod dock_extras;
+mod power;
 mod services;
 mod shelf;
 mod state;
@@ -185,7 +186,12 @@ fn main() {
             updater::get_update_state,
             dock_extras::get_dock_extras,
             dock_extras::open_dock_extra,
-            dock_extras::eject_dock_extra
+            dock_extras::eject_dock_extra,
+            power::power_shutdown,
+            power::power_restart,
+            power::power_sleep,
+            power::power_lock,
+            power::power_switch_user
         ])
         .setup(|app| {
             init_taskbar_marker(app.handle());
