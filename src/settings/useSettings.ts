@@ -29,6 +29,7 @@ export function useSettings() {
 	const [weatherEnabled, setWeatherEnabled] = useState(true);
 	const [calendarEnabled, setCalendarEnabled] = useState(true);
 	const [powerModeEnabled, setPowerModeEnabled] = useState(true);
+	const [wallpaperModeEnabled, setWallpaperModeEnabled] = useState(true);
 	const [timerSoundEnabled, setTimerSoundEnabled] = useState(
 		() => localStorage.getItem("bloom-timer-sound-enabled") !== "false"
 	);
@@ -173,6 +174,7 @@ export function useSettings() {
 			apply(getVal("bloom-weather-enabled"), setWeatherEnabled, readBool);
 			apply(getVal("bloom-calendar-enabled"), setCalendarEnabled, readBool);
 			apply(getVal("bloom-power-mode-enabled"), setPowerModeEnabled, readBool);
+			apply(getVal("bloom-wallpaper-mode-enabled"), setWallpaperModeEnabled, readBool);
 			apply(getVal("bloom-timer-sound-enabled"), setTimerSoundEnabled, readBool);
 			apply(getVal("bloom-music-mode-enabled"), setMusicModeEnabled, readBool);
 			apply(getVal("bloom-music-compact-notch"), setMusicCompactNotch, readBool);
@@ -428,6 +430,12 @@ export function useSettings() {
 		const next = !powerModeEnabled;
 		setPowerModeEnabled(next);
 		saveSetting("bloom-power-mode-enabled", String(next));
+	};
+
+	const toggleWallpaperMode = () => {
+		const next = !wallpaperModeEnabled;
+		setWallpaperModeEnabled(next);
+		saveSetting("bloom-wallpaper-mode-enabled", String(next));
 	};
 
 	const toggleTimerSound = () => {
@@ -854,6 +862,8 @@ export function useSettings() {
 		toggleCalendar,
 		powerModeEnabled,
 		togglePowerMode,
+		wallpaperModeEnabled,
+		toggleWallpaperMode,
 		timerSoundEnabled,
 		toggleTimerSound,
 		musicModeEnabled,

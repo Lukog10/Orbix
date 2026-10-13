@@ -11,6 +11,7 @@ import {
 	Timer,
 	Archive,
 	Power,
+	Image,
 	X
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
@@ -26,6 +27,8 @@ interface NotchTabProps {
 	toggleCalendar: () => void;
 	powerModeEnabled: boolean;
 	togglePowerMode: () => void;
+	wallpaperModeEnabled: boolean;
+	toggleWallpaperMode: () => void;
 	timerSoundEnabled: boolean;
 	toggleTimerSound: () => void;
 	musicModeEnabled: boolean;
@@ -69,6 +72,8 @@ export function NotchTab({
 	toggleCalendar,
 	powerModeEnabled,
 	togglePowerMode,
+	wallpaperModeEnabled,
+	toggleWallpaperMode,
 	timerSoundEnabled,
 	toggleTimerSound,
 	musicModeEnabled,
@@ -145,6 +150,13 @@ export function NotchTab({
 				<SettingRow icon={Power} label="Power Menu" desc="Hold to shutdown, restart, sleep, lock or switch user">
 					<label className="toggle-switch">
 						<input type="checkbox" checked={powerModeEnabled} onChange={togglePowerMode} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Image} label="Wallpaper Carousel" desc="Browse and set desktop wallpapers from the notch">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={wallpaperModeEnabled} onChange={toggleWallpaperMode} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>

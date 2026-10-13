@@ -19,6 +19,7 @@ import {
 } from "./icons";
 import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { PowerView } from "./components/power/PowerView";
+import { WallpaperView } from "./components/wallpaper/WallpaperView";
 import { useWeather } from "./hooks/useWeather";
 import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";
@@ -393,7 +394,7 @@ interface ShelfItem {
 	timestamp: number;
 }
 
-type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "status" | "shelf" | "power";
+type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "status" | "shelf" | "power" | "wallpaper";
 
 // The shelf is a short-lived stash: one row, newest first, oldest evicted.
 const SHELF_MAX_ITEMS = 10;
@@ -811,6 +812,9 @@ function App() {
 	const [settingsPowerModeEnabled, setSettingsPowerModeEnabled] = useState(
 		() => localStorage.getItem("bloom-power-mode-enabled") !== "false"
 	);
+	const [settingsWallpaperModeEnabled, setSettingsWallpaperModeEnabled] = useState(
+		() => localStorage.getItem("bloom-wallpaper-mode-enabled") !== "false"
+	);
 	const [settingsTimerSoundEnabled, setSettingsTimerSoundEnabled] = useState(
 		() => localStorage.getItem("bloom-timer-sound-enabled") !== "false"
 	);
@@ -869,6 +873,7 @@ function App() {
 				setSettingsWeatherEnabled(getVal("bloom-weather-enabled", "true") !== "false");
 				setSettingsCalendarEnabled(getVal("bloom-calendar-enabled", "true") !== "false");
 				setSettingsPowerModeEnabled(getVal("bloom-power-mode-enabled", "true") !== "false");
+				setSettingsWallpaperModeEnabled(getVal("bloom-wallpaper-mode-enabled", "true") !== "false");
 				setSettingsTimerSoundEnabled(getVal("bloom-timer-sound-enabled", "true") !== "false");
 				setSettingsMusicModeEnabled(getVal("bloom-music-mode-enabled", "true") !== "false");
 				setShelfPersist(getVal("bloom-shelf-persist", "false") === "true");
@@ -1019,6 +1024,7 @@ function App() {
 			"bloom-weather-enabled": setSettingsWeatherEnabled,
 			"bloom-calendar-enabled": setSettingsCalendarEnabled,
 			"bloom-power-mode-enabled": setSettingsPowerModeEnabled,
+			"bloom-wallpaper-mode-enabled": setSettingsWallpaperModeEnabled,
 			"bloom-timer-sound-enabled": setSettingsTimerSoundEnabled,
 			"bloom-music-mode-enabled": setSettingsMusicModeEnabled,
 			"bloom-shelf-persist": setShelfPersist,
@@ -1551,13 +1557,14 @@ function App() {
 	};
 
 	const getCyclableModes = () => {
-		// Requested order: Time with stats (status) → controls (command-center) → calendar → shelf → music → power
+		// Requested order: Time with stats (status) → controls (command-center) → calendar → shelf → music → wallpaper → power
 		const musicBeforeStatus = isPlaying && mediaInfo.has_media && settingsMusicModeEnabled;
 		const modes: BloomMode[] = musicBeforeStatus
-			? ["status", "command-center", "calendar", "shelf", "music", "power"]
-			: ["status", "command-center", "calendar", "shelf", "music", "power"];
+			? ["status", "command-center", "calendar", "shelf", "music", "wallpaper", "power"]
+			: ["status", "command-center", "calendar", "shelf", "music", "wallpaper", "power"];
 		return modes.filter((m) => {
 			if (m === "power" && !settingsPowerModeEnabled) return false;
+			if (m === "wallpaper" && !settingsWallpaperModeEnabled) return false;
 			if (m === "music" && (!settingsMusicModeEnabled || !mediaInfo.has_media)) return false;
 			if (m === "calendar" && !settingsCalendarEnabled) return false;
 			// Shelf only appears in the cycle while it holds something (or a
@@ -1811,6 +1818,13 @@ function App() {
 			setBloomMode("status");
 		}
 	}, [settingsPowerModeEnabled, bloomMode]);
+
+	// Reset bloom mode when wallpaper mode setting is disabled
+	useEffect(() => {
+		if (!settingsWallpaperModeEnabled && bloomMode === "wallpaper") {
+			setBloomMode("status");
+		}
+	}, [settingsWallpaperModeEnabled, bloomMode]);
 
 	// Reset bloom mode when music mode setting is disabled
 	useEffect(() => {
@@ -2345,6 +2359,7 @@ function App() {
 		if (bloomMode === "shelf") return 380;
 		if (bloomMode === "command-center" && isHovered) return 350;
 		if (bloomMode === "power" && isHovered) return 340;
+		if (bloomMode === "wallpaper" && isHovered) return 380;
 		if (bloomMode === "status" && isHovered) {
 			const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
 			return Math.min(200 + totalWidgets * 50, 380);
@@ -2381,6 +2396,7 @@ function App() {
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
 		if (bloomMode === "command-center") return isHovered ? 230 : 36;
 		if (bloomMode === "power") return isHovered ? 122 : 36;
+		if (bloomMode === "wallpaper") return isHovered ? 144 : 36;
 		if (bloomMode === "status") return 36;
 		if (isMusicMode && isHovered) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
@@ -3557,6 +3573,13 @@ function App() {
 								<AnimatePresence>
 									{bloomMode === "power" && (
 										<PowerView />
+									)}
+								</AnimatePresence>
+
+								{/* Wallpaper Panel */}
+								<AnimatePresence>
+									{bloomMode === "wallpaper" && (
+										<WallpaperView />
 									)}
 								</AnimatePresence>
 							</motion.div>

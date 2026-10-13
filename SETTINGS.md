@@ -60,6 +60,8 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 | --------------------------- | -------------------- | -------- | --------------------------------------------------------------------- |
 | `bloom-calendar-enabled`    | `"true"` / `"false"` | `"true"` | Enable calendar/timer mode in the notch.                              |
 | `bloom-power-mode-enabled`   | `"true"` / `"false"` | `"true"` | Enable power menu mode (shutdown, restart, sleep, lock, switch user). |
+| `bloom-wallpaper-mode-enabled` | `"true"` / `"false"` | `"true"` | Enable wallpaper carousel mode in the notch.                           |
+| `bloom-wallpaper-folder`     | string path          | `""`      | Custom folder containing wallpapers (empty = default Windows wallpapers). |
 | `bloom-music-mode-enabled`  | `"true"` / `"false"` | `"true"` | Enable interactive music media widget.                                |
 | `bloom-music-compact-notch` | `"true"` / `"false"` | `"true"` | Show compact music display (visualizer + artwork) in collapsed notch. |
 

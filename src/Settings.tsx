@@ -163,6 +163,8 @@ function SettingsApp() {
 							toggleCalendar={settings.toggleCalendar}
 							powerModeEnabled={settings.powerModeEnabled}
 							togglePowerMode={settings.togglePowerMode}
+							wallpaperModeEnabled={settings.wallpaperModeEnabled}
+							toggleWallpaperMode={settings.toggleWallpaperMode}
 							timerSoundEnabled={settings.timerSoundEnabled}
 							toggleTimerSound={settings.toggleTimerSound}
 							musicModeEnabled={settings.musicModeEnabled}

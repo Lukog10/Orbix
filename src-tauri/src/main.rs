@@ -10,6 +10,7 @@ mod tray;
 mod types;
 mod updater;
 mod utils;
+mod wallpaper;
 
 use std::sync::atomic::Ordering;
 use tauri::Manager;
@@ -191,7 +192,11 @@ fn main() {
             power::power_restart,
             power::power_sleep,
             power::power_lock,
-            power::power_switch_user
+            power::power_switch_user,
+            wallpaper::get_current_wallpaper,
+            wallpaper::get_wallpapers,
+            wallpaper::wallpaper_thumbnail,
+            wallpaper::set_wallpaper
         ])
         .setup(|app| {
             init_taskbar_marker(app.handle());
