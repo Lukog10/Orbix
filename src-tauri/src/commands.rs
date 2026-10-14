@@ -10,7 +10,8 @@ use crate::services::{
 };
 use crate::state::*;
 use crate::types::{
-    AppInfo, AudioSessionInfo, BrightnessChangeEvent, IntRect, VolumeChangeEvent, WifiStatus,
+    AppInfo, AudioSessionInfo, BrightnessChangeEvent, IntRect, SearchFileItem, VolumeChangeEvent,
+    WifiStatus,
 };
 use crate::utils::*;
 use std::collections::HashMap;
@@ -445,33 +446,25 @@ pub async fn change_dock_mode(app: AppHandle, mode: String) {
 }
 
 #[tauri::command]
-pub async fn change_notch_mode(app: AppHandle, mode: String) {
+pub async fn change_notch_mode(app: AppHandle, _mode: String) {
     if let Some(main_win) = app.get_webview_window("main") {
-        if mode == "fixed" {
-            crate::services::apply_main_appbar_mode(&app, true);
-        } else {
-            let _ = main_win.show();
-            // Locked helper so a concurrent display/power event cannot
-            // interleave between the mode decision and the AppBar call.
-            crate::services::apply_main_appbar_mode(&app, false);
+        let _ = main_win.show();
+        crate::services::apply_main_appbar_mode(&app, false);
 
-            let main_clone = main_win.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                if !MAIN_APPBAR_REGISTERED.load(Ordering::Relaxed) {
-                    if let Ok(hwnd) = main_clone.hwnd() {
-                        re_assert_topmost(hwnd);
-                    }
-                }
-            });
-        }
+        let main_clone = main_win.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            if let Ok(hwnd) = main_clone.hwnd() {
+                re_assert_topmost(hwnd);
+            }
+        });
         // Reposition window to span the full primary monitor so CSS justify-content:center works
         if let Ok(Some(monitor)) = main_win.primary_monitor() {
             let m_pos = monitor.position();
             let m_size = monitor.size();
             let scale = monitor.scale_factor();
             let bloom_scale = crate::utils::get_bloom_scale(&app);
-            let target_height = (420.0 * bloom_scale * scale) as u32;
+            let target_height = (520.0 * bloom_scale * scale) as u32;
             let _ = main_win.set_position(tauri::PhysicalPosition::new(m_pos.x, m_pos.y));
             let _ = main_win.set_size(tauri::PhysicalSize::new(m_size.width, target_height));
         }
@@ -1980,13 +1973,17 @@ pub async fn get_installed_apps() -> Vec<AppInfo> {
     } else {
         true
     };
-    if is_empty && !IS_SCANNING.load(Ordering::Relaxed) {
+    if !is_empty {
+        if let Ok(cache_lock) = cache.lock() {
+            return cache_lock.clone();
+        }
+    } else if !IS_SCANNING.load(Ordering::Relaxed) {
         crate::services::trigger_app_scan();
     }
     let start = std::time::Instant::now();
-    while IS_SCANNING.load(Ordering::Relaxed) && start.elapsed() < std::time::Duration::from_secs(5)
+    while IS_SCANNING.load(Ordering::Relaxed) && start.elapsed() < std::time::Duration::from_secs(8)
     {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
     }
     if let Ok(cache_lock) = cache.lock() {
         cache_lock.clone()
@@ -2871,36 +2868,53 @@ fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::V
 }
 
 #[tauri::command]
-pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
+pub async fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
     let path = app
         .path()
         .app_config_dir()
         .map_err(|e| e.to_string())?
         .join("settings.json");
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    let mut settings = HashMap::new();
-    if let Ok(content) = std::fs::read_to_string(&path) {
-        if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
-            settings = existing;
+
+    // Fast-path: update in-memory cache and broadcast immediately so webview never lags
+    let key_clone = key.clone();
+    let value_clone = value.clone();
+    let app_clone = app.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        static SAVE_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = match SAVE_MUTEX.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
         }
-    }
-    settings.insert(key.clone(), value);
-    let content = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(path, content).map_err(|e| e.to_string())?;
+        let mut settings = HashMap::new();
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
+                settings = existing;
+            }
+        }
+        settings.insert(key_clone.clone(), value_clone.clone());
+        if let Ok(content) = serde_json::to_string(&settings) {
+            let _ = std::fs::write(&path, content);
+        }
 
-    crate::utils::replace_settings_cache(settings.clone());
+        crate::utils::replace_settings_cache(settings.clone());
 
-    // Broadcast so all windows sync — emit the key as-is (bloom-prefixed)
-    let _ = app.emit(
-        "settings-changed",
-        serde_json::json!({ "key": &key, "value": &settings[&key] }),
-    );
+        let _ = app_clone.emit(
+            "settings-changed",
+            serde_json::json!({ "key": &key_clone, "value": &value_clone }),
+        );
 
-    if key == "bloom-scale" {
-        re_register_appbars(&app, &settings);
-    }
+        if key_clone == "bloom-scale" {
+            re_register_appbars(&app_clone, &settings);
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -3164,15 +3178,46 @@ fn is_wlan_connected_sync() -> bool {
     }
 }
 
-/// Wi-Fi radio and association state, so the notch quick settings tile can show
-/// Off / On / Connected. `connected` is false while the radio is on but no
-/// network is associated.
+fn is_ethernet_connected_sync() -> bool {
+    use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
+
+    unsafe {
+        let mut table_ptr: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+        let ret = GetIfTable2(&mut table_ptr);
+        if ret.is_ok() && !table_ptr.is_null() {
+            let table = &*table_ptr;
+            let num_entries = table.NumEntries as usize;
+            let rows = table.Table.as_ptr();
+            let mut connected = false;
+            for i in 0..num_entries {
+                let row = &*rows.add(i);
+                // Type 6 = IF_TYPE_ETHERNET_CSMACD
+                // OperStatus: IfOperStatusUp = 1
+                // MediaConnectState: MediaConnectStateConnected = 1
+                if row.Type == 6 && row.OperStatus.0 == 1 && row.MediaConnectState.0 == 1 {
+                    connected = true;
+                    break;
+                }
+            }
+            FreeMibTable(table_ptr as *const _);
+            return connected;
+        }
+        false
+    }
+}
+
+/// Wi-Fi and Ethernet network association state for notch quick settings.
 #[tauri::command]
 pub async fn get_wifi_status() -> Result<WifiStatus, String> {
     tauri::async_runtime::spawn_blocking(|| -> Result<WifiStatus, String> {
         let enabled = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi)?;
         let connected = enabled && is_wlan_connected_sync();
-        Ok(WifiStatus { enabled, connected })
+        let ethernet_connected = is_ethernet_connected_sync();
+        Ok(WifiStatus {
+            enabled,
+            connected,
+            ethernet_connected,
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -3240,6 +3285,70 @@ pub fn open_airplane_mode_settings() {
 }
 
 #[tauri::command]
+pub fn open_mobile_hotspot_settings() {
+    unsafe {
+        use windows::Win32::UI::Shell::ShellExecuteA;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let _ = ShellExecuteA(
+            None,
+            windows::core::PCSTR(c"open".as_ptr() as *const u8),
+            windows::core::PCSTR(c"ms-settings:network-mobilehotspot".as_ptr() as *const u8),
+            windows::core::PCSTR::null(),
+            windows::core::PCSTR::null(),
+            SW_SHOWNORMAL,
+        );
+    }
+}
+
+#[tauri::command]
+pub fn open_network_settings() {
+    unsafe {
+        use windows::Win32::UI::Shell::ShellExecuteA;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let _ = ShellExecuteA(
+            None,
+            windows::core::PCSTR(c"open".as_ptr() as *const u8),
+            windows::core::PCSTR(c"ms-settings:network".as_ptr() as *const u8),
+            windows::core::PCSTR::null(),
+            windows::core::PCSTR::null(),
+            SW_SHOWNORMAL,
+        );
+    }
+}
+
+#[tauri::command]
+pub fn open_ethernet_settings() {
+    unsafe {
+        use windows::Win32::UI::Shell::ShellExecuteA;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let _ = ShellExecuteA(
+            None,
+            windows::core::PCSTR(c"open".as_ptr() as *const u8),
+            windows::core::PCSTR(c"ms-settings:network-ethernet".as_ptr() as *const u8),
+            windows::core::PCSTR::null(),
+            windows::core::PCSTR::null(),
+            SW_SHOWNORMAL,
+        );
+    }
+}
+
+#[tauri::command]
+pub fn open_night_light_settings() {
+    unsafe {
+        use windows::Win32::UI::Shell::ShellExecuteA;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let _ = ShellExecuteA(
+            None,
+            windows::core::PCSTR(c"open".as_ptr() as *const u8),
+            windows::core::PCSTR(c"ms-settings:nightlight".as_ptr() as *const u8),
+            windows::core::PCSTR::null(),
+            windows::core::PCSTR::null(),
+            SW_SHOWNORMAL,
+        );
+    }
+}
+
+#[tauri::command]
 pub fn set_brightness(app: AppHandle, brightness: u32) {
     let val = brightness.min(100);
     crate::state::CURRENT_BRIGHTNESS.store(val, Ordering::Relaxed);
@@ -3286,6 +3395,199 @@ pub fn open_battery_saver_settings() {
             windows::core::PCSTR::null(),
             SW_SHOWNORMAL,
         );
+    }
+}
+
+static AIRPLANE_MODE_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[tauri::command]
+pub async fn get_airplane_mode_state() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let wifi = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi).unwrap_or(false);
+        let bt = get_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth).unwrap_or(false);
+        Ok(!wifi && !bt)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn toggle_airplane_mode() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let current_state = {
+            let wifi = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi).unwrap_or(false);
+            let bt = get_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth).unwrap_or(false);
+            !wifi && !bt
+        };
+        let target_airplane = !current_state;
+        if target_airplane {
+            let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi, false);
+            let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth, false);
+        } else {
+            let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi, true);
+            let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth, true);
+        }
+        AIRPLANE_MODE_ENABLED.store(target_airplane, Ordering::Relaxed);
+        Ok(target_airplane)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn get_battery_saver_state_sync() -> bool {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    if let Ok(output) = Command::new("powercfg")
+        .arg("/getactivescheme")
+        .creation_flags(0x08000000)
+        .output()
+    {
+        let text = String::from_utf8_lossy(&output.stdout);
+        return text.to_lowercase().contains("a1841308-3541-4fab-bc81-f71556f20b4a")
+            || text.to_lowercase().contains("power saver");
+    }
+    false
+}
+
+#[tauri::command]
+pub fn toggle_battery_saver() -> Result<bool, String> {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    let is_saver = get_battery_saver_state_sync();
+    let target_guid = if is_saver {
+        "381b4222-f694-41f0-9685-ff5bb260df2e"
+    } else {
+        "a1841308-3541-4fab-bc81-f71556f20b4a"
+    };
+    let _ = Command::new("powercfg")
+        .args(["/setactive", target_guid])
+        .creation_flags(0x08000000)
+        .status();
+    Ok(!is_saver)
+}
+
+#[tauri::command]
+pub fn get_dnd_state() -> Result<bool, String> {
+    use windows::Win32::System::Registry::{RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ};
+    use windows::core::w;
+
+    unsafe {
+        let mut key = HKEY::default();
+        let subkey = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings");
+        if RegOpenKeyExW(HKEY_CURRENT_USER, subkey, Some(0), KEY_READ, &mut key).is_ok() {
+            let val_name = w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            let mut val: u32 = 1;
+            let mut size = std::mem::size_of::<u32>() as u32;
+            let res = RegQueryValueExW(key, val_name, None, None, Some(&mut val as *mut u32 as *mut u8), Some(&mut size));
+            let _ = windows::Win32::System::Registry::RegCloseKey(key);
+            if res.is_ok() {
+                return Ok(val == 0);
+            }
+        }
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+pub fn toggle_dnd_state() -> Result<bool, String> {
+    use windows::Win32::System::Registry::{RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_ALL_ACCESS, REG_DWORD, REG_OPTION_NON_VOLATILE};
+    use windows::core::w;
+
+    let current = get_dnd_state().unwrap_or(false);
+    let next_dnd = !current;
+    let toasts_enabled: u32 = if next_dnd { 0 } else { 1 };
+
+    unsafe {
+        let mut key = HKEY::default();
+        let subkey = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings");
+        if RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            subkey,
+            Some(0),
+            None,
+            REG_OPTION_NON_VOLATILE,
+            KEY_ALL_ACCESS,
+            None,
+            &mut key,
+            None,
+        ).is_ok() {
+            let val_name = w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+            let _ = RegSetValueExW(
+                key,
+                val_name,
+                Some(0),
+                REG_DWORD,
+                Some(std::slice::from_raw_parts(&toasts_enabled as *const u32 as *const u8, 4)),
+            );
+            let _ = windows::Win32::System::Registry::RegCloseKey(key);
+
+            use windows::Win32::UI::WindowsAndMessaging::{SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE};
+            let _ = SendMessageTimeoutW(
+                HWND_BROADCAST,
+                WM_SETTINGCHANGE,
+                windows::Win32::Foundation::WPARAM(0),
+                windows::Win32::Foundation::LPARAM(w!("TraySettings").as_ptr() as isize),
+                SMTO_ABORTIFHUNG,
+                100,
+                None,
+            );
+        }
+    }
+    Ok(next_dnd)
+}
+
+static HOTSPOT_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[tauri::command]
+pub fn get_mobile_hotspot_state() -> bool {
+    HOTSPOT_ACTIVE.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub fn toggle_mobile_hotspot() -> Result<bool, String> {
+    let current = HOTSPOT_ACTIVE.load(Ordering::Relaxed);
+    let next = !current;
+    HOTSPOT_ACTIVE.store(next, Ordering::Relaxed);
+
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    let action = if next { "start" } else { "stop" };
+    let _ = Command::new("netsh")
+        .args(["wlan", action, "hostednetwork"])
+        .creation_flags(0x08000000)
+        .status();
+
+    Ok(next)
+}
+
+#[tauri::command]
+pub fn toggle_ethernet_state() -> Result<bool, String> {
+    let connected = is_ethernet_connected_sync();
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    let action = if connected { "admin=disable" } else { "admin=enable" };
+    let _ = Command::new("netsh")
+        .args(["interface", "set", "interface", "Ethernet", action])
+        .creation_flags(0x08000000)
+        .status();
+    Ok(!connected)
+}
+
+#[tauri::command]
+pub fn get_audio_devices() -> Result<crate::types::AudioDeviceStatus, String> {
+    use windows::Win32::Media::Audio::IMMDeviceEnumerator;
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let enumerator = CoCreateInstance::<_, IMMDeviceEnumerator>(
+            &windows::Win32::Media::Audio::MMDeviceEnumerator,
+            None,
+            CLSCTX_ALL,
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(crate::services::query_audio_devices_status(&enumerator))
     }
 }
 
@@ -4049,4 +4351,137 @@ pub async fn activate_tray_icon(tray_id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || crate::tray::interact(&tray_id, false))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut results = Vec::new();
+        let query_lower = query.trim().to_lowercase();
+
+        let user_profile = match std::env::var("USERPROFILE") {
+            Ok(val) => val,
+            Err(_) => return results,
+        };
+
+        let user_path = std::path::Path::new(&user_profile);
+        let standard_folders = [
+            ("Desktop", user_path.join("Desktop")),
+            ("Downloads", user_path.join("Downloads")),
+            ("Documents", user_path.join("Documents")),
+            ("Pictures", user_path.join("Pictures")),
+            ("Music", user_path.join("Music")),
+            ("Videos", user_path.join("Videos")),
+        ];
+
+        // 1. Standard folders
+        for (name, path) in &standard_folders {
+            if path.exists() && (query_lower.is_empty() || name.to_lowercase().contains(&query_lower)) {
+                results.push(SearchFileItem {
+                    name: name.to_string(),
+                    path: path.to_string_lossy().to_string(),
+                    is_dir: true,
+                    ext: None,
+                });
+            }
+        }
+
+        // 2. Scan items inside Desktop, Downloads, Documents
+        let search_folders = [
+            user_path.join("Desktop"),
+            user_path.join("Downloads"),
+            user_path.join("Documents"),
+        ];
+
+        for folder in &search_folders {
+            if let Ok(entries) = std::fs::read_dir(folder) {
+                let mut count = 0;
+                for entry in entries.flatten() {
+                    if count >= 25 {
+                        break;
+                    }
+                    let p = entry.path();
+                    let file_name = p
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    if file_name.starts_with('.')
+                        || file_name.eq_ignore_ascii_case("desktop.ini")
+                    {
+                        continue;
+                    }
+
+                    let matches = if query_lower.is_empty() {
+                        true
+                    } else {
+                        file_name.to_lowercase().contains(&query_lower)
+                    };
+
+                    if matches {
+                        let is_dir = p.is_dir();
+                        let ext = p.extension().map(|e| e.to_string_lossy().to_string());
+                        results.push(SearchFileItem {
+                            name: file_name,
+                            path: p.to_string_lossy().to_string(),
+                            is_dir,
+                            ext,
+                        });
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        // 3. Scan Windows Recent items if available
+        let recent_path = user_path
+            .join("AppData")
+            .join("Roaming")
+            .join("Microsoft")
+            .join("Windows")
+            .join("Recent");
+        if recent_path.exists() {
+            if let Ok(entries) = std::fs::read_dir(&recent_path) {
+                let mut recent_count = 0;
+                for entry in entries.flatten() {
+                    if recent_count >= 15 {
+                        break;
+                    }
+                    let p = entry.path();
+                    let file_name = p
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    if file_name.starts_with('.')
+                        || file_name.eq_ignore_ascii_case("desktop.ini")
+                    {
+                        continue;
+                    }
+
+                    let clean_name = file_name.strip_suffix(".lnk").unwrap_or(&file_name).to_string();
+                    let matches = if query_lower.is_empty() {
+                        true
+                    } else {
+                        clean_name.to_lowercase().contains(&query_lower)
+                    };
+
+                    if matches {
+                        results.push(SearchFileItem {
+                            name: clean_name,
+                            path: p.to_string_lossy().to_string(),
+                            is_dir: false,
+                            ext: Some("lnk".into()),
+                        });
+                        recent_count += 1;
+                    }
+                }
+            }
+        }
+
+        results.truncate(50);
+        results
+    })
+    .await
+    .unwrap_or_default()
 }

@@ -169,9 +169,22 @@ fn main() {
             set_bluetooth_state,
             open_bluetooth_settings,
             open_airplane_mode_settings,
+            get_airplane_mode_state,
+            toggle_airplane_mode,
+            open_mobile_hotspot_settings,
+            get_mobile_hotspot_state,
+            toggle_mobile_hotspot,
+            open_network_settings,
+            open_ethernet_settings,
+            toggle_ethernet_state,
+            open_night_light_settings,
             set_brightness,
             get_battery_saver_state,
+            toggle_battery_saver,
             open_battery_saver_settings,
+            get_dnd_state,
+            toggle_dnd_state,
+            get_audio_devices,
             get_system_accent_color,
             get_cpu_usage,
             get_ram_usage,
@@ -196,7 +209,8 @@ fn main() {
             wallpaper::get_current_wallpaper,
             wallpaper::get_wallpapers,
             wallpaper::wallpaper_thumbnail,
-            wallpaper::set_wallpaper
+            wallpaper::set_wallpaper,
+            search_user_files
         ])
         .setup(|app| {
             init_taskbar_marker(app.handle());

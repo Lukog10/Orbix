@@ -142,15 +142,12 @@ export function PowerView() {
 	const activeAction = POWER_ACTIONS.find((a) => a.id === activeId);
 	const triggeredAction = POWER_ACTIONS.find((a) => a.id === triggeredId);
 
-	let hintText = "Hold an icon to execute";
-	let hintClass = "";
-	if (triggeredAction) {
-		hintText = triggeredAction.triggeredText;
-		hintClass = "is-triggered";
-	} else if (activeAction) {
-		hintText = activeAction.description;
-		hintClass = "is-holding";
-	}
+	const feedbackText = triggeredAction
+		? triggeredAction.triggeredText
+		: activeAction
+			? activeAction.description
+			: null;
+	const feedbackClass = triggeredAction ? "is-triggered" : activeAction ? "is-holding" : "";
 
 	return (
 		<motion.div
@@ -161,9 +158,11 @@ export function PowerView() {
 			exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
 			transition={{ type: "spring", stiffness: 400, damping: 30 }}
 		>
-			<div className="power-header">
-				<span className={`power-status-hint ${hintClass}`}>{hintText}</span>
-			</div>
+			{feedbackText && (
+				<div className="power-feedback-badge">
+					<span className={`power-status-hint ${feedbackClass}`}>{feedbackText}</span>
+				</div>
+			)}
 
 			<div className="power-actions-row">
 				{POWER_ACTIONS.map((action) => {

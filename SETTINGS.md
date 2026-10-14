@@ -65,6 +65,17 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 | `bloom-music-mode-enabled`  | `"true"` / `"false"` | `"true"` | Enable interactive music media widget.                                |
 | `bloom-music-compact-notch` | `"true"` / `"false"` | `"true"` | Show compact music display (visualizer + artwork) in collapsed notch. |
 
+### Notch Quick Controls & Audio
+
+| Key                            | Type                 | Default  | Description                                                                              |
+| ------------------------------ | -------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `bloom-notch-control-savings`  | `"true"` / `"false"` | `"true"` | Show Energy / Battery Saver button in Notch Control Center.                               |
+| `bloom-notch-control-dnd`      | `"true"` / `"false"` | `"true"` | Show Focus / Do Not Disturb button in Notch Control Center.                              |
+| `bloom-notch-control-airplane` | `"true"` / `"false"` | `"true"` | Show Flight / Airplane Mode button in Notch Control Center.                              |
+| `bloom-notch-control-hotspot`  | `"true"` / `"false"` | `"true"` | Show Mobile Hotspot button in Notch Control Center.                                      |
+| `bloom-notch-control-ethernet` | `"true"` / `"false"` | `"true"` | Show Ethernet network button in Notch Control Center.                                    |
+| `bloom-notch-audio-indicator`  | `"true"` / `"false"` | `"true"` | Show animated toast pill and status icons when headphones or microphones connect.         |
+
 ### Shelf
 
 | Key                   | Type                 | Default   | Description                                                                                                    |

@@ -20,6 +20,7 @@ import {
 import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { PowerView } from "./components/power/PowerView";
 import { WallpaperView } from "./components/wallpaper/WallpaperView";
+import { AppsView } from "./components/apps/AppsView";
 import { useWeather } from "./hooks/useWeather";
 import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";
@@ -33,7 +34,6 @@ import {
 	Cpu,
 	MemoryStick,
 	HardDrive,
-	ArrowUpDown,
 	BellRing,
 	Play,
 	Pause,
@@ -43,7 +43,14 @@ import {
 	Type,
 	X,
 	ChevronLeft,
-	ChevronRight
+	ChevronRight,
+	Network,
+	Radio,
+	Plane,
+	Headphones,
+	Mic,
+	Zap,
+	Moon
 } from "lucide-react";
 
 // Pomodoro timer limit.
@@ -383,6 +390,7 @@ interface MediaInfo {
 interface WifiStatus {
 	enabled: boolean;
 	connected: boolean;
+	ethernet_connected?: boolean;
 }
 
 interface ShelfItem {
@@ -394,7 +402,7 @@ interface ShelfItem {
 	timestamp: number;
 }
 
-type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "status" | "shelf" | "power" | "wallpaper";
+type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "status" | "shelf" | "power" | "wallpaper" | "apps";
 
 // The shelf is a short-lived stash: one row, newest first, oldest evicted.
 const SHELF_MAX_ITEMS = 10;
@@ -458,6 +466,7 @@ function App() {
 
 	const [time, setTime] = useState("");
 	const [isHovered, setIsHovered] = useState(false);
+	const [appsInputFocused, setAppsInputFocused] = useState(false);
 	// Set once the open notch is clicked; shows the panel arrows until hover ends.
 	const [notchClicked, setNotchClicked] = useState(false);
 	const [isReady, setIsReady] = useState(false);
@@ -547,9 +556,62 @@ function App() {
 	const [wifiStatus, setWifiStatus] = useState<WifiStatus | null>(null);
 	const wifiEnabled = wifiStatus?.enabled ?? false;
 	const wifiConnected = wifiStatus?.connected ?? false;
+	const [ethernetOverride, setEthernetOverride] = useState<boolean | null>(null);
+	const ethernetConnected = ethernetOverride !== null ? ethernetOverride : (wifiStatus?.ethernet_connected ?? false);
+	const [airplaneModeActive, setAirplaneModeActive] = useState(false);
+	const [hotspotActive, setHotspotActive] = useState(false);
 	const [bluetoothEnabled, setBluetoothEnabled] = useState(true);
 	const [batterySaverEnabled, setBatterySaverEnabled] = useState(false);
 	const [currentBrightness, setCurrentBrightness] = useState(50);
+
+	// Audio device status & notifications
+	const [audioDevices, setAudioDevices] = useState<{
+		headphone_connected: boolean;
+		headphone_name: string;
+		mic_connected: boolean;
+		mic_name: string;
+	}>({
+		headphone_connected: false,
+		headphone_name: "",
+		mic_connected: false,
+		mic_name: ""
+	});
+	const audioDevicesRef = useRef(audioDevices);
+	const [audioToast, setAudioToast] = useState<{
+		message: string;
+		type: "headphone" | "mic";
+	} | null>(null);
+	const audioToastTimerRef = useRef<number | null>(null);
+	const scheduleNotchCloseRef = useRef<(delay?: number) => void>(() => {});
+
+	const triggerAudioToast = useCallback((message: string, type: "headphone" | "mic") => {
+		if (audioToastTimerRef.current) clearTimeout(audioToastTimerRef.current);
+		setAudioToast({ message, type });
+		audioToastTimerRef.current = window.setTimeout(() => {
+			setAudioToast(null);
+			audioToastTimerRef.current = null;
+		}, 3500);
+	}, []);
+
+	// Notch Control Center feature selections
+	const [notchControlSavings, setNotchControlSavings] = useState(
+		() => localStorage.getItem("bloom-notch-control-savings") !== "false"
+	);
+	const [notchControlDnd, setNotchControlDnd] = useState(
+		() => localStorage.getItem("bloom-notch-control-dnd") !== "false"
+	);
+	const [notchControlAirplane, setNotchControlAirplane] = useState(
+		() => localStorage.getItem("bloom-notch-control-airplane") !== "false"
+	);
+	const [notchControlHotspot, setNotchControlHotspot] = useState(
+		() => localStorage.getItem("bloom-notch-control-hotspot") !== "false"
+	);
+	const [notchControlEthernet, setNotchControlEthernet] = useState(
+		() => localStorage.getItem("bloom-notch-control-ethernet") !== "false"
+	);
+	const [notchAudioIndicator, setNotchAudioIndicator] = useState(
+		() => localStorage.getItem("bloom-notch-audio-indicator") !== "false"
+	);
 
 	// System metrics for status widgets
 	const [cpuUsage, setCpuUsage] = useState(0);
@@ -566,6 +628,62 @@ function App() {
 	useEffect(() => {
 		setWindowLabel(getCurrentWebviewWindow().label);
 	}, []);
+
+	useEffect(() => {
+		if (windowLabel !== "main") return;
+
+		invoke<boolean>("get_airplane_mode_state").then(setAirplaneModeActive).catch(() => {});
+		invoke<boolean>("get_mobile_hotspot_state").then(setHotspotActive).catch(() => {});
+		invoke<boolean>("get_dnd_state").then(setDndActive).catch(() => {});
+		invoke<{
+			headphone_connected: boolean;
+			headphone_name: string;
+			mic_connected: boolean;
+			mic_name: string;
+		}>("get_audio_devices")
+			.then((status) => {
+				audioDevicesRef.current = status;
+				setAudioDevices(status);
+			})
+			.catch(() => {});
+
+		let unlistenAudio: (() => void) | undefined;
+		let disposed = false;
+		listen<{
+			headphone_connected: boolean;
+			headphone_name: string;
+			mic_connected: boolean;
+			mic_name: string;
+		}>("audio-device-changed", (event) => {
+			const prev = audioDevicesRef.current;
+			const next = event.payload;
+			audioDevicesRef.current = next;
+			setAudioDevices(next);
+
+			if (localStorage.getItem("bloom-notch-audio-indicator") !== "false") {
+				if (!prev.headphone_connected && next.headphone_connected) {
+					triggerAudioToast(
+						`Headphones: ${next.headphone_name || "Connected"}`,
+						"headphone"
+					);
+				} else if (prev.headphone_connected && !next.headphone_connected) {
+					triggerAudioToast("Headphones disconnected", "headphone");
+				} else if (!prev.mic_connected && next.mic_connected) {
+					triggerAudioToast(`Mic: ${next.mic_name || "Connected"}`, "mic");
+				} else if (prev.mic_connected && !next.mic_connected) {
+					triggerAudioToast("Microphone disconnected", "mic");
+				}
+			}
+		}).then((fn) => {
+			if (disposed) fn();
+			else unlistenAudio = fn;
+		});
+
+		return () => {
+			disposed = true;
+			unlistenAudio?.();
+		};
+	}, [windowLabel, triggerAudioToast]);
 
 	// Update state
 	const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -680,18 +798,33 @@ function App() {
 	}, [isVisible, isHidden, windowLabel]);
 
 	useEffect(() => {
+		let rafId: number | null = null;
+		let lastX = -1;
+		let lastY = -1;
+		let lastW = -1;
+		let lastH = -1;
+
 		const updateRect = () => {
-			if (bloomRef.current && windowLabel === "main") {
-				const rect = bloomRef.current.getBoundingClientRect();
-				invoke("update_notch_rect", {
-					rect: {
-						x: Math.round(rect.x),
-						y: Math.round(rect.y),
-						width: Math.round(rect.width),
-						height: Math.round(rect.height)
+			if (rafId !== null) return;
+			rafId = requestAnimationFrame(() => {
+				rafId = null;
+				if (bloomRef.current && windowLabel === "main") {
+					const rect = bloomRef.current.getBoundingClientRect();
+					const x = Math.round(rect.x);
+					const y = Math.round(rect.y);
+					const width = Math.round(rect.width);
+					const height = Math.round(rect.height);
+					if (x !== lastX || y !== lastY || width !== lastW || height !== lastH) {
+						lastX = x;
+						lastY = y;
+						lastW = width;
+						lastH = height;
+						invoke("update_notch_rect", {
+							rect: { x, y, width, height }
+						}).catch(() => {});
 					}
-				}).catch(() => {});
-			}
+				}
+			});
 		};
 
 		updateRect();
@@ -700,6 +833,7 @@ function App() {
 		if (bloomRef.current) observer.observe(bloomRef.current);
 
 		return () => {
+			if (rafId !== null) cancelAnimationFrame(rafId);
 			window.removeEventListener("resize", updateRect);
 			observer.disconnect();
 		};
@@ -815,6 +949,9 @@ function App() {
 	const [settingsWallpaperModeEnabled, setSettingsWallpaperModeEnabled] = useState(
 		() => localStorage.getItem("bloom-wallpaper-mode-enabled") !== "false"
 	);
+	const [settingsAppsEnabled, setSettingsAppsEnabled] = useState(
+		() => localStorage.getItem("bloom-apps-enabled") !== "false"
+	);
 	const [settingsTimerSoundEnabled, setSettingsTimerSoundEnabled] = useState(
 		() => localStorage.getItem("bloom-timer-sound-enabled") !== "false"
 	);
@@ -874,6 +1011,7 @@ function App() {
 				setSettingsCalendarEnabled(getVal("bloom-calendar-enabled", "true") !== "false");
 				setSettingsPowerModeEnabled(getVal("bloom-power-mode-enabled", "true") !== "false");
 				setSettingsWallpaperModeEnabled(getVal("bloom-wallpaper-mode-enabled", "true") !== "false");
+				setSettingsAppsEnabled(getVal("bloom-apps-enabled", "true") !== "false");
 				setSettingsTimerSoundEnabled(getVal("bloom-timer-sound-enabled", "true") !== "false");
 				setSettingsMusicModeEnabled(getVal("bloom-music-mode-enabled", "true") !== "false");
 				setShelfPersist(getVal("bloom-shelf-persist", "false") === "true");
@@ -887,6 +1025,12 @@ function App() {
 					getVal("bloom-media-compact-glow-enabled", "true") !== "false"
 				);
 				setSettingsCornersEnabled(getVal("bloom-corners-enabled", "false") === "true");
+				setNotchControlSavings(getVal("bloom-notch-control-savings", "true") !== "false");
+				setNotchControlDnd(getVal("bloom-notch-control-dnd", "true") !== "false");
+				setNotchControlAirplane(getVal("bloom-notch-control-airplane", "true") !== "false");
+				setNotchControlHotspot(getVal("bloom-notch-control-hotspot", "true") !== "false");
+				setNotchControlEthernet(getVal("bloom-notch-control-ethernet", "true") !== "false");
+				setNotchAudioIndicator(getVal("bloom-notch-audio-indicator", "true") !== "false");
 				setTimeFormat24h(getVal("bloom-time-format-24h") === "true");
 
 				const thresholdStr = getVal("bloom-low-battery-threshold", "20");
@@ -1006,7 +1150,7 @@ function App() {
 		// the webview still thinks the pointer is inside the notch (it cannot
 		// receive the mouseleave once the window is click-through).
 		const unlistenNotchPointerLeft = listen("notch-pointer-left", () => {
-			releaseNotchHover();
+			scheduleNotchCloseRef.current(400);
 		});
 
 		return () => {
@@ -1025,6 +1169,7 @@ function App() {
 			"bloom-calendar-enabled": setSettingsCalendarEnabled,
 			"bloom-power-mode-enabled": setSettingsPowerModeEnabled,
 			"bloom-wallpaper-mode-enabled": setSettingsWallpaperModeEnabled,
+			"bloom-apps-enabled": setSettingsAppsEnabled,
 			"bloom-timer-sound-enabled": setSettingsTimerSoundEnabled,
 			"bloom-music-mode-enabled": setSettingsMusicModeEnabled,
 			"bloom-shelf-persist": setShelfPersist,
@@ -1050,6 +1195,12 @@ function App() {
 				} catch {}
 			},
 			"bloom-show-update-indicator": (value) => setShowUpdateIndicator(String(value) === "true"),
+			"bloom-notch-control-savings": (v) => setNotchControlSavings(v !== "false"),
+			"bloom-notch-control-dnd": (v) => setNotchControlDnd(v !== "false"),
+			"bloom-notch-control-airplane": (v) => setNotchControlAirplane(v !== "false"),
+			"bloom-notch-control-hotspot": (v) => setNotchControlHotspot(v !== "false"),
+			"bloom-notch-control-ethernet": (v) => setNotchControlEthernet(v !== "false"),
+			"bloom-notch-audio-indicator": (v) => setNotchAudioIndicator(v !== "false"),
 			"bloom-time-format-24h": setTimeFormat24h
 		},
 		[windowLabel]
@@ -1303,8 +1454,19 @@ function App() {
 
 	// Shared hover-release, called on DOM hover end and when the backend
 	// reports the pointer left the (now click-through) notch window. Clears
-	// the hover flags and folds hover-only panels back to the resting mode.
-	const releaseNotchHover = () => {
+	// the hover flags and folds hover-only panels back to the resting mode with debounce.
+	const notchCloseTimerRef = useRef<number | null>(null);
+
+	const cancelNotchClose = useCallback(() => {
+		if (notchCloseTimerRef.current !== null) {
+			window.clearTimeout(notchCloseTimerRef.current);
+			notchCloseTimerRef.current = null;
+		}
+	}, []);
+
+	const releaseNotchHover = useCallback(() => {
+		cancelNotchClose();
+		if (appsInputFocused || bloomMode === "apps") return;
 		setIsHovered(false);
 		setIsNotchHovered(false);
 		setNotchClicked(false);
@@ -1313,11 +1475,28 @@ function App() {
 			prev === "command-center" ||
 			prev === "calendar" ||
 			prev === "status" ||
-			prev === "shelf"
+			prev === "shelf" ||
+			prev === "power" ||
+			prev === "wallpaper"
 				? shelfRestingModeRef.current
 				: prev
 		);
-	};
+	}, [appsInputFocused, bloomMode, cancelNotchClose]);
+
+	const scheduleNotchClose = useCallback(
+		(delay = 400) => {
+			cancelNotchClose();
+			notchCloseTimerRef.current = window.setTimeout(() => {
+				notchCloseTimerRef.current = null;
+				releaseNotchHover();
+			}, delay);
+		},
+		[cancelNotchClose, releaseNotchHover]
+	);
+
+	useEffect(() => {
+		scheduleNotchCloseRef.current = scheduleNotchClose;
+	}, [scheduleNotchClose]);
 
 	const clearShelfCollapse = () => {
 		if (shelfCollapseTimer.current !== null) {
@@ -1535,11 +1714,32 @@ function App() {
 
 	const lastScrollTime = useRef(0);
 	const handleWheel = (e: React.WheelEvent) => {
+		if (bloomMode === "apps" || bloomMode === "wallpaper") {
+			return;
+		}
 		const target = e.target as HTMLElement;
+
+		// Ignore wheel inside any expanded panel's content area (apps, wallpapers, calendar, controls, etc.)
 		if (
+			target.closest(".apps-panel-content") ||
+			target.closest(".wallpaper-panel-content") ||
+			target.closest(".command-center-content-minimal") ||
+			target.closest(".calendar-timer-content") ||
 			target.closest(".calendar-grid") ||
 			target.closest(".timer-column") ||
-			target.closest(".shelf-items-grid")
+			target.closest(".shelf-items-grid") ||
+			target.closest(".power-panel-content")
+		) {
+			return;
+		}
+
+		// When expanded, cycling between sections via mouse wheel is ONLY permitted
+		// on the top header of the notch (.main-row with time/stats/arrows) or on the media player,
+		// as requested by the user. Scrolling over content scrolls that content without changing sections.
+		if (
+			isExpanded &&
+			!target.closest(".main-row") &&
+			!target.closest(".expanded-music-container")
 		) {
 			return;
 		}
@@ -1557,16 +1757,17 @@ function App() {
 	};
 
 	const getCyclableModes = () => {
-		// Requested order: Time with stats (status) → controls (command-center) → calendar → shelf → music → wallpaper → power
+		// Requested order: Time with stats (status) → controls (command-center) → calendar → apps → shelf → music → wallpaper → power
 		const musicBeforeStatus = isPlaying && mediaInfo.has_media && settingsMusicModeEnabled;
 		const modes: BloomMode[] = musicBeforeStatus
-			? ["status", "command-center", "calendar", "shelf", "music", "wallpaper", "power"]
-			: ["status", "command-center", "calendar", "shelf", "music", "wallpaper", "power"];
+			? ["status", "command-center", "calendar", "apps", "shelf", "music", "wallpaper", "power"]
+			: ["status", "command-center", "calendar", "apps", "shelf", "music", "wallpaper", "power"];
 		return modes.filter((m) => {
 			if (m === "power" && !settingsPowerModeEnabled) return false;
 			if (m === "wallpaper" && !settingsWallpaperModeEnabled) return false;
 			if (m === "music" && (!settingsMusicModeEnabled || !mediaInfo.has_media)) return false;
 			if (m === "calendar" && !settingsCalendarEnabled) return false;
+			if (m === "apps" && !settingsAppsEnabled) return false;
 			// Shelf only appears in the cycle while it holds something (or a
 			// drag is hovering); drag-enter forces it directly regardless.
 			if (m === "shelf" && shelfItems.length === 0 && !isDragHovering) return false;
@@ -1793,17 +1994,22 @@ function App() {
 		triggerEventPeek
 	]);
 
-	// Auto-switch back from music if music stops for 5 seconds
-	// Skip if user manually scrolled to music mode
+	// Auto-switch back from music if music stops or media is closed
 	useEffect(() => {
+		if (!mediaInfo.has_media && bloomMode === "music") {
+			manualMusicRef.current = false;
+			setBloomMode("status");
+			return;
+		}
 		let timer: any;
-		if (!isPlaying && bloomMode === "music" && !manualMusicRef.current) {
+		if (!isPlaying && bloomMode === "music") {
 			timer = setTimeout(() => {
+				manualMusicRef.current = false;
 				setBloomMode("status");
-			}, 5000);
+			}, 1000);
 		}
 		return () => clearTimeout(timer);
-	}, [isPlaying, bloomMode]);
+	}, [isPlaying, mediaInfo.has_media, bloomMode]);
 
 	// Reset bloom mode when calendar setting is disabled
 	useEffect(() => {
@@ -1825,6 +2031,14 @@ function App() {
 			setBloomMode("status");
 		}
 	}, [settingsWallpaperModeEnabled, bloomMode]);
+
+	// Reset bloom mode when apps mode setting is disabled
+	useEffect(() => {
+		if (!settingsAppsEnabled && bloomMode === "apps") {
+			setBloomMode("status");
+		}
+	}, [settingsAppsEnabled, bloomMode]);
+
 
 	// Reset bloom mode when music mode setting is disabled
 	useEffect(() => {
@@ -2331,16 +2545,68 @@ function App() {
 				);
 			case "net":
 				return (
-					<div className="passive-feature" key="net" title="Network Speed">
-						<ArrowUpDown size={12} strokeWidth={2} />
+					<div
+						className="passive-feature net-speed-widget"
+						key="net"
+						title={`Network Speed\nUpload: ${formatBytes(netUpSpeed)}/s\nDownload: ${formatBytes(netDownSpeed)}/s`}
+					>
+						<div className="net-stacked-lines">
+							<span className="net-stacked-row up">
+								<span className="net-stacked-arrow">↑</span>
+								<span className="net-stacked-val">{formatBytesCompact(netUpSpeed)}</span>
+							</span>
+							<span className="net-stacked-row down">
+								<span className="net-stacked-arrow">↓</span>
+								<span className="net-stacked-val">{formatBytesCompact(netDownSpeed)}</span>
+							</span>
+						</div>
+					</div>
+				);
+			case "audio":
+				if (!notchAudioIndicator || (!audioDevices.headphone_connected && !audioDevices.mic_connected)) return null;
+				return (
+					<div
+						className="passive-feature"
+						key="audio"
+						title={`Audio Devices\nHeadphones: ${audioDevices.headphone_connected ? audioDevices.headphone_name || "Connected" : "None"}\nMic: ${audioDevices.mic_connected ? audioDevices.mic_name || "Connected" : "None"}`}
+					>
+						{audioDevices.headphone_connected ? (
+							<Headphones size={12} strokeWidth={2.2} />
+						) : (
+							<Mic size={12} strokeWidth={2.2} />
+						)}
 						<span className="label">
-							↑{formatBytes(netUpSpeed)} ↓{formatBytes(netDownSpeed)}
+							{audioDevices.headphone_connected ? "Audio" : "Mic"}
 						</span>
+					</div>
+				);
+			case "dnd":
+				if (!dndActive) return null;
+				return (
+					<div className="passive-feature" key="dnd" title="Do Not Disturb / Focus Active">
+						<Moon size={12} strokeWidth={2.2} />
+						<span className="label">DND</span>
+					</div>
+				);
+			case "saver":
+				if (!batterySaverEnabled) return null;
+				return (
+					<div className="passive-feature" key="saver" title="Energy Saver Active">
+						<Zap size={12} strokeWidth={2.2} />
+						<span className="label">Saver</span>
 					</div>
 				);
 			default:
 				return null;
 		}
+	};
+
+	const formatBytesCompact = (bytes: number) => {
+		if (bytes < 1024) return `${bytes}B`;
+		if (bytes < 100 * 1024) return `${(bytes / 1024).toFixed(1)}K`;
+		if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}K`;
+		if (bytes < 100 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}M`;
+		return `${Math.round(bytes / (1024 * 1024))}M`;
 	};
 
 	const formatBytes = (bytes: number) => {
@@ -2357,15 +2623,16 @@ function App() {
 		if (bloomMode === "announcement" && announcement && !announcementDismissed) return 380;
 		if (isCalendarMode) return 480;
 		if (bloomMode === "shelf") return 380;
-		if (bloomMode === "command-center" && isHovered) return 350;
-		if (bloomMode === "power" && isHovered) return 340;
-		if (bloomMode === "wallpaper" && isHovered) return 380;
+		if (bloomMode === "command-center" && isHovered) return 365;
+		if (bloomMode === "apps") return 530;
+		if (bloomMode === "power" && isHovered) return 360;
+		if (bloomMode === "wallpaper") return 860;
 		if (bloomMode === "status" && isHovered) {
 			const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
-			return Math.min(200 + totalWidgets * 50, 380);
+			return Math.min(220 + totalWidgets * 45, 400);
 		}
 		if (isMusicMode && isHovered) return mediaLayout === "compact" ? 300 : 340;
-		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse) && !isHovered) return 200;
+		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) && !isHovered) return 260;
 
 		let w = 140;
 		if (isMusicMode) {
@@ -2395,8 +2662,9 @@ function App() {
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
 		if (bloomMode === "command-center") return isHovered ? 230 : 36;
-		if (bloomMode === "power") return isHovered ? 122 : 36;
-		if (bloomMode === "wallpaper") return isHovered ? 144 : 36;
+		if (bloomMode === "apps") return 400;
+		if (bloomMode === "power") return isHovered ? 124 : 36;
+		if (bloomMode === "wallpaper") return 320;
 		if (bloomMode === "status") return 36;
 		if (isMusicMode && isHovered) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
@@ -2447,10 +2715,26 @@ function App() {
 			<div style={{ zoom: scale, width: "100%", display: "flex", justifyContent: "center" }}>
 				<motion.div
 					ref={bloomRef}
-					className={`bloom ${isHovered ? "expanded" : ""} ${isImpacted ? "is-impacted" : ""} ${isDragHovering ? "drag-hover" : ""}`}
-					onMouseEnter={() => setIsNotchHovered(true)}
-					onMouseLeave={() => setIsNotchHovered(false)}
-					onWheel={handleWheel}
+					className={`bloom ${isHovered ? "expanded" : ""} ${isImpacted ? "is-impacted" : ""} ${isDragHovering ? "drag-hover" : ""} ${bloomMode === "apps" ? "apps-mode" : ""} ${isCalendarMode ? "calendar-mode" : ""}`}
+					onMouseEnter={() => {
+						cancelNotchClose();
+						setIsNotchHovered(true);
+					}}
+					onMouseLeave={() => {
+						scheduleNotchClose(400);
+					}}
+					onPointerEnter={() => {
+						cancelNotchClose();
+						if (!isHovered) setIsHovered(true);
+					}}
+					onPointerMove={() => {
+						cancelNotchClose();
+						if (!isHovered) setIsHovered(true);
+					}}
+					onWheel={(e) => {
+						cancelNotchClose();
+						handleWheel(e);
+					}}
 					initial={{
 						y: 250,
 						width: 30.6,
@@ -2488,17 +2772,27 @@ function App() {
 					}}
 					onClickCapture={() => setNotchClicked(true)}
 					onHoverStart={() => {
+						cancelNotchClose();
 						setIsHovered(true);
 						// Shelf and announcement manage their own lifetime — hovering
 						// must not yank the island out from under them. Hovering the
 						// shelf also cancels its post-drop auto-close.
 						if (bloomMode === "shelf") {
 							clearShelfCollapse();
-						} else if (bloomMode !== "announcement") {
+						} else if (
+							bloomMode !== "announcement" &&
+							bloomMode !== "apps" &&
+							bloomMode !== "power" &&
+							bloomMode !== "wallpaper" &&
+							bloomMode !== "command-center" &&
+							bloomMode !== "calendar"
+						) {
 							setBloomMode(mediaInfo.has_media && isPlaying ? "music" : "status");
 						}
 					}}
-					onHoverEnd={releaseNotchHover}
+					onHoverEnd={() => {
+						scheduleNotchClose(400);
+					}}
 					style={{ originY: 0 }}
 					transition={{
 						width: { type: "spring", stiffness: 400, damping: 31 },
@@ -2831,9 +3125,26 @@ function App() {
 										>
 											<div className="main-row">
 												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse) &&
+													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) &&
 													!isHovered ? (
-														showUpdatePulse ? (
+														audioToast ? (
+															<motion.div
+																key="audio-pulse-view"
+																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+																className="power-pulse-content"
+															>
+																{audioToast.type === "headphone" ? (
+																	<Headphones size={13} strokeWidth={2.4} style={{ color: "#38bdf8" }} />
+																) : (
+																	<Mic size={13} strokeWidth={2.4} style={{ color: "#a78bfa" }} />
+																)}
+																<span className="label" style={{ color: "#f1f5f9" }}>
+																	{audioToast.message}
+																</span>
+															</motion.div>
+														) : showUpdatePulse ? (
 															<motion.div
 																key="update-pulse-view"
 																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
@@ -2883,6 +3194,28 @@ function App() {
 														>
 															{/* Left: visualizer (music) or weather (command-center, calendar) */}
 															<div className="side-content left">
+																{notchAudioIndicator && audioDevices.headphone_connected && !isHovered && !isMusicMode && (
+																	<motion.div
+																		className="passive-feature"
+																		style={{ padding: "0 2px" }}
+																		title={`Headphones: ${audioDevices.headphone_name || "Connected"}`}
+																		initial={{ opacity: 0, scale: 0.8 }}
+																		animate={{ opacity: 1, scale: 1 }}
+																	>
+																		<Headphones size={12} strokeWidth={2.2} style={{ color: "#38bdf8" }} />
+																	</motion.div>
+																)}
+																{notchAudioIndicator && audioDevices.mic_connected && !isHovered && !isMusicMode && (
+																	<motion.div
+																		className="passive-feature"
+																		style={{ padding: "0 2px" }}
+																		title={`Microphone: ${audioDevices.mic_name || "Connected"}`}
+																		initial={{ opacity: 0, scale: 0.8 }}
+																		animate={{ opacity: 1, scale: 1 }}
+																	>
+																		<Mic size={12} strokeWidth={2.2} style={{ color: "#a78bfa" }} />
+																	</motion.div>
+																)}
 																{isMusicMode && settingsVisualizerEnabled ? (
 																	<AnimatePresence>
 																		{settingsVisualizerEnabled && (
@@ -3193,27 +3526,117 @@ function App() {
 											</div>
 
 											{/* Circular Actions Row */}
-											<div className="cc-circular-actions-row">
-												<button
-													className={`cc-circular-btn ${dndActive ? "active" : ""}`}
-													onClick={(e) => {
-														e.stopPropagation();
-														setDndActive((prev) => !prev);
-													}}
-													title={`Focus / DND: ${dndActive ? "On" : "Off"}`}
-												>
-													<MoonIcon />
-												</button>
-												<button
-													className={`cc-circular-btn ${batterySaverEnabled ? "active" : ""}`}
-													onClick={(e) => {
-														e.stopPropagation();
-														openBatterySaverSettings();
-													}}
-													title={`Energy Saver: ${batterySaverEnabled ? "On" : "Off"} — Click to open Settings`}
-												>
-													<BatterySaverIcon />
-												</button>
+											<div
+												className="cc-circular-actions-row"
+												onWheel={(e) => {
+													e.currentTarget.scrollLeft += e.deltaY;
+												}}
+											>
+												{notchControlEthernet && (
+													<button
+														className={`cc-circular-btn ${ethernetConnected ? "active" : ""}`}
+														onClick={async (e) => {
+															e.stopPropagation();
+															try {
+																const newState = await invoke<boolean>("toggle_ethernet_state");
+																setEthernetOverride(newState);
+															} catch (err) {
+																console.error("Failed to toggle ethernet:", err);
+															}
+														}}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															invoke("open_ethernet_settings");
+														}}
+														title={`Ethernet: ${ethernetConnected ? "Connected" : "Disconnected"} — Click to Toggle, Right-click for Settings`}
+													>
+														<Network size={14} strokeWidth={2.2} />
+													</button>
+												)}
+												{notchControlAirplane && (
+													<button
+														className={`cc-circular-btn ${airplaneModeActive ? "active" : ""}`}
+														onClick={async (e) => {
+															e.stopPropagation();
+															try {
+																const newState = await invoke<boolean>("toggle_airplane_mode");
+																setAirplaneModeActive(newState);
+															} catch (err) {
+																console.error("Failed to toggle airplane mode:", err);
+															}
+														}}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															invoke("open_airplane_mode_settings");
+														}}
+														title={`Airplane Mode: ${airplaneModeActive ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
+													>
+														<Plane size={14} strokeWidth={2.2} />
+													</button>
+												)}
+												{notchControlHotspot && (
+													<button
+														className={`cc-circular-btn ${hotspotActive ? "active" : ""}`}
+														onClick={async (e) => {
+															e.stopPropagation();
+															try {
+																const newState = await invoke<boolean>("toggle_mobile_hotspot");
+																setHotspotActive(newState);
+															} catch (err) {
+																console.error("Failed to toggle hotspot:", err);
+															}
+														}}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															invoke("open_mobile_hotspot_settings");
+														}}
+														title={`Mobile Hotspot: ${hotspotActive ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
+													>
+														<Radio size={14} strokeWidth={2.2} />
+													</button>
+												)}
+												{notchControlDnd && (
+													<button
+														className={`cc-circular-btn ${dndActive ? "active" : ""}`}
+														onClick={async (e) => {
+															e.stopPropagation();
+															try {
+																const newState = await invoke<boolean>("toggle_dnd_state");
+																setDndActive(newState);
+															} catch (err) {
+																console.error("Failed to toggle DND:", err);
+															}
+														}}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															invoke("open_notification_center");
+														}}
+														title={`Focus / DND: ${dndActive ? "On" : "Off"} — Click to Toggle, Right-click for Notification Center`}
+													>
+														<MoonIcon />
+													</button>
+												)}
+												{notchControlSavings && (
+													<button
+														className={`cc-circular-btn ${batterySaverEnabled ? "active" : ""}`}
+														onClick={async (e) => {
+															e.stopPropagation();
+															try {
+																const newState = await invoke<boolean>("toggle_battery_saver");
+																setBatterySaverEnabled(newState);
+															} catch (err) {
+																console.error("Failed to toggle energy saver:", err);
+															}
+														}}
+														onContextMenu={(e) => {
+															e.preventDefault();
+															openBatterySaverSettings();
+														}}
+														title={`Energy Saver: ${batterySaverEnabled ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
+													>
+														<BatterySaverIcon />
+													</button>
+												)}
 												<button
 													className="cc-circular-btn"
 													onClick={(e) => {
@@ -3576,10 +3999,24 @@ function App() {
 									)}
 								</AnimatePresence>
 
+								{/* Apps Panel */}
+								<AnimatePresence>
+									{bloomMode === "apps" && (
+										<AppsView
+											onFocusChange={setAppsInputFocused}
+											onClose={() => {
+												setAppsInputFocused(false);
+												setBloomMode(shelfRestingModeRef.current);
+											}}
+											onSwitchMode={(m) => setBloomMode(m as BloomMode)}
+										/>
+									)}
+								</AnimatePresence>
+
 								{/* Wallpaper Panel */}
 								<AnimatePresence>
 									{bloomMode === "wallpaper" && (
-										<WallpaperView />
+										<WallpaperView onClose={() => setBloomMode(shelfRestingModeRef.current)} />
 									)}
 								</AnimatePresence>
 							</motion.div>

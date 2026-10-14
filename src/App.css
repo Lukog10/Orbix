@@ -68,12 +68,14 @@ img {
 	height: 36px;
 	position: relative;
 	flex-shrink: 0;
+	padding: 0 12px;
+	box-sizing: border-box;
 }
 
 .main-row-inner {
 	display: flex;
 	align-items: center;
-	justify-content: center;
+	justify-content: space-between;
 	width: 100%;
 	height: 100%;
 	position: relative;
@@ -205,6 +207,11 @@ img {
 
 .time-center {
 	position: relative;
+	flex-shrink: 0;
+	margin: 0 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 /* Shelf: OS file drag hovering over the notch (see onDragDropEvent in App.tsx) */
@@ -362,18 +369,17 @@ img {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	flex: 1;
+	flex: 1 1 0%;
 	height: 100%;
 	min-width: 0;
+	overflow: hidden;
 }
 
 .side-content.left {
-	left: 14px;
 	justify-content: flex-start;
 }
 
 .side-content.right {
-	right: 14px;
 	justify-content: flex-end;
 }
 
@@ -397,6 +403,55 @@ img {
 	line-height: 1;
 	margin-bottom: -0.5px;
 	/* Optical adjustment for Inter font baseline */
+}
+
+/* Redesigned compact network widget */
+.passive-feature.net-speed-widget {
+	display: inline-flex;
+	align-items: center;
+	padding: 0;
+	gap: 0;
+}
+
+.net-stacked-lines {
+	display: inline-flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 1.5px;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+
+.net-stacked-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 2.5px;
+	font-size: 8px;
+	font-weight: 600;
+	line-height: 1;
+	letter-spacing: -0.2px;
+	color: var(--bloom-text, rgba(255, 255, 255, 0.9));
+}
+
+.net-stacked-arrow {
+	font-size: 8px;
+	line-height: 1;
+	opacity: 0.7;
+	font-weight: 700;
+}
+
+.net-stacked-row.up .net-stacked-arrow {
+	color: #64d2ff;
+}
+
+.net-stacked-row.down .net-stacked-arrow {
+	color: #30d158;
+}
+
+.net-stacked-val {
+	opacity: 0.92;
+	font-size: 8px;
+	font-family: inherit;
 }
 
 .update-dot {
@@ -1040,6 +1095,10 @@ img {
 .bloom.calendar-mode {
 	padding-top: 4px;
 	border-radius: 0 0 28px 28px !important;
+}
+
+.bloom.apps-mode {
+	border-radius: 0 0 18px 18px !important;
 }
 
 /* Compact Premium Expanded Music */
@@ -1791,13 +1850,26 @@ img {
 /* Circular Actions Row */
 .cc-circular-actions-row {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
+	gap: 7px;
 	width: 100%;
-	padding: 0 4px;
+	padding: 2px 4px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	scroll-behavior: smooth;
+	box-sizing: border-box;
+	mask-image: linear-gradient(to right, transparent, black 8px, black calc(100% - 8px), transparent);
+	-webkit-mask-image: linear-gradient(to right, transparent, black 8px, black calc(100% - 8px), transparent);
+}
+
+.cc-circular-actions-row::-webkit-scrollbar {
+	display: none;
 }
 
 .cc-circular-btn {
+	flex-shrink: 0;
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;

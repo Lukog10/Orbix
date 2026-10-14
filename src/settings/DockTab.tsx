@@ -107,7 +107,19 @@ export function DockTab({
 		if (!file) return;
 		const reader = new FileReader();
 		reader.onload = () => {
-			handleStartIconChange(`custom:${reader.result as string}`);
+			const img = new Image();
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				canvas.width = 64;
+				canvas.height = 64;
+				const ctx = canvas.getContext("2d");
+				if (ctx) {
+					ctx.drawImage(img, 0, 0, 64, 64);
+					const resized = canvas.toDataURL("image/png");
+					handleStartIconChange(`custom:${resized}`);
+				}
+			};
+			img.src = reader.result as string;
 		};
 		reader.readAsDataURL(file);
 		e.target.value = "";

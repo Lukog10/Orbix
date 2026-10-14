@@ -99,6 +99,12 @@ const ITEM_ENTRY_TRANSITION = {
 const ITEM_INITIAL = { opacity: 0, scale: 0 };
 const ITEM_ANIMATE = { opacity: 1, scale: 1 };
 const ITEM_EXIT = { opacity: 0, scale: 0 };
+const ICON_VARIANTS = {
+	idle: { y: 0, scale: 1 },
+	hover: { y: -5, scale: 1.1 },
+	drag: { y: -10, scale: 1.1, opacity: 0.8 },
+	tap: { scale: 0.95 }
+};
 
 // One dot per open window, capped at three.
 function WindowDots({ count, background }: { count: number; background?: boolean }) {
@@ -124,6 +130,14 @@ const Dock = memo(function Dock() {
 	const [activeApps, setActiveApps] = useState<AppInfo[]>([]);
 	const iconsRef = useRef<Record<string, string>>({});
 	const [, setIconsTick] = useState(0);
+	const iconUpdateTimerRef = useRef<any>(null);
+	const scheduleIconsUpdate = () => {
+		if (iconUpdateTimerRef.current) return;
+		iconUpdateTimerRef.current = setTimeout(() => {
+			iconUpdateTimerRef.current = null;
+			setIconsTick((t) => t + 1);
+		}, 50);
+	};
 	const [dockMode, setDockMode] = useState(() => {
 		const raw = localStorage.getItem("bloom-dock-mode") || "smart";
 		if (raw === "auto-hide") return "smart";
@@ -280,19 +294,34 @@ const Dock = memo(function Dock() {
 	}, []);
 
 	useEffect(() => {
+		let rafId: number | null = null;
+		let lastX = -1;
+		let lastY = -1;
+		let lastW = -1;
+		let lastH = -1;
+
 		const updateRect = () => {
-			if (dockRef.current) {
-				const rect = dockRef.current.getBoundingClientRect();
-				const hasPreview = !!previewData;
-				invoke("update_dock_rect", {
-					rect: {
-						x: Math.round(rect.x) - (hasPreview ? 500 : 0),
-						y: Math.round(rect.y) - (hasPreview ? 320 : 0),
-						width: Math.round(rect.width) + (hasPreview ? 1000 : 0),
-						height: Math.round(rect.height) + (hasPreview ? 320 : 0)
+			if (rafId !== null) return;
+			rafId = requestAnimationFrame(() => {
+				rafId = null;
+				if (dockRef.current) {
+					const rect = dockRef.current.getBoundingClientRect();
+					const hasPreview = !!previewData;
+					const x = Math.round(rect.x) - (hasPreview ? 500 : 0);
+					const y = Math.round(rect.y) - (hasPreview ? 320 : 0);
+					const width = Math.round(rect.width) + (hasPreview ? 1000 : 0);
+					const height = Math.round(rect.height) + (hasPreview ? 320 : 0);
+					if (x !== lastX || y !== lastY || width !== lastW || height !== lastH) {
+						lastX = x;
+						lastY = y;
+						lastW = width;
+						lastH = height;
+						invoke("update_dock_rect", {
+							rect: { x, y, width, height }
+						}).catch(() => {});
 					}
-				}).catch(() => {});
-			}
+				}
+			});
 		};
 
 		updateRect();
@@ -301,6 +330,7 @@ const Dock = memo(function Dock() {
 		if (dockRef.current) observer.observe(dockRef.current);
 
 		return () => {
+			if (rafId !== null) cancelAnimationFrame(rafId);
 			window.removeEventListener("resize", updateRect);
 			observer.disconnect();
 		};
@@ -498,7 +528,7 @@ const Dock = memo(function Dock() {
 			if (icon) {
 				iconsRef.current[cacheKey] = icon;
 				if (!isHost) iconsRef.current[path] = icon;
-				setIconsTick((t) => t + 1);
+				scheduleIconsUpdate();
 			} else if (retryCount < 3 && !hwnd) {
 				setTimeout(() => fetchIcon(path, name, undefined, retryCount + 1), 3000 * (retryCount + 1));
 			}
@@ -647,6 +677,7 @@ const Dock = memo(function Dock() {
 
 	const menuRef = useRef<HTMLDivElement>(null);
 	const popupRef = useRef<HTMLDivElement>(null);
+	const menuOpenedAtRef = useRef<number>(0);
 
 	const showActionError = (error: unknown) => {
 		if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -667,11 +698,17 @@ const Dock = memo(function Dock() {
 	const handleContextMenu = (e: React.MouseEvent, app: AppInfo | null) => {
 		e.stopPropagation();
 		e.preventDefault();
-		// Shift-right-click keeps Bloom pin/customization controls available.
-		if (app?.is_background && app.tray_ids?.length === 1 && !e.shiftKey) {
-			void openTrayMenu(app.tray_ids[0]);
-			return;
-		}
+		menuOpenedAtRef.current = Date.now();
+		// Immediately inform backend so dock window does not become click-through
+		invoke("set_menu_open", {
+			open: true,
+			rect: {
+				x: Math.max(0, Math.round(e.clientX - 160)),
+				y: Math.max(0, Math.round(e.clientY - 340)),
+				width: 340,
+				height: 380
+			}
+		}).catch(() => {});
 		setContextMenu({ x: e.clientX, y: e.clientY, app });
 	};
 
@@ -682,6 +719,16 @@ const Dock = memo(function Dock() {
 	const handleExtraContextMenu = (e: React.MouseEvent, extra: DockExtra) => {
 		e.stopPropagation();
 		e.preventDefault();
+		menuOpenedAtRef.current = Date.now();
+		invoke("set_menu_open", {
+			open: true,
+			rect: {
+				x: Math.max(0, Math.round(e.clientX - 160)),
+				y: Math.max(0, Math.round(e.clientY - 340)),
+				width: 340,
+				height: 380
+			}
+		}).catch(() => {});
 		setContextMenu({ x: e.clientX, y: e.clientY, app: null, extra });
 	};
 
@@ -714,9 +761,11 @@ const Dock = memo(function Dock() {
 		}
 		const margin = 8;
 		const r = menuRef.current.getBoundingClientRect();
+		const w = r.width > 0 ? r.width : 220;
+		const h = r.height > 0 ? r.height : 260;
 		setMenuPos({
-			left: Math.max(margin, Math.min(contextMenu.x, window.innerWidth - r.width - margin)),
-			top: Math.max(margin, contextMenu.y - r.height - margin)
+			left: Math.max(margin, Math.min(contextMenu.x, window.innerWidth - w - margin)),
+			top: Math.max(margin, contextMenu.y - h - margin)
 		});
 	}, [contextMenu, scale]);
 
@@ -918,12 +967,26 @@ const Dock = memo(function Dock() {
 
 	useEffect(() => {
 		const handleBlur = () => {
+			if (isDockHovered || Date.now() - menuOpenedAtRef.current < 1000) return;
 			closeMenu();
 			closePopup();
 		};
 		window.addEventListener("blur", handleBlur);
 		return () => window.removeEventListener("blur", handleBlur);
-	}, []);
+	}, [isDockHovered]);
+
+	useEffect(() => {
+		if (!contextMenu && !showAddPopup) return;
+		const handleOutsideClick = (e: MouseEvent) => {
+			if (Date.now() - menuOpenedAtRef.current < 200) return;
+			if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
+			if (popupRef.current && popupRef.current.contains(e.target as Node)) return;
+			closeMenu();
+			closePopup();
+		};
+		window.addEventListener("pointerdown", handleOutsideClick);
+		return () => window.removeEventListener("pointerdown", handleOutsideClick);
+	}, [contextMenu, showAddPopup]);
 
 	useEffect(() => {
 		if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
@@ -988,13 +1051,6 @@ const Dock = memo(function Dock() {
 		};
 	}, [hoveredApp, isDragging, dockItems]);
 
-	const iconVariants = {
-		idle: { y: 0, scale: 1 },
-		hover: { y: -5, scale: 1.1 },
-		drag: { y: -10, scale: 1.1, opacity: 0.8 },
-		tap: { scale: 0.95 }
-	};
-
 	const renderExtra = (extra: DockExtra) => (
 		<motion.div
 			key={extra.id}
@@ -1020,7 +1076,7 @@ const Dock = memo(function Dock() {
 			{hoveredApp === extra.id && <div className="tooltip">{extra.name}</div>}
 			<motion.div
 				className="dock-icon"
-				variants={iconVariants}
+				variants={ICON_VARIANTS}
 				animate={pressedApp === extra.id ? "tap" : hoveredApp === extra.id ? "hover" : "idle"}
 				onPointerDown={() => setPressedApp(extra.id)}
 				onPointerUp={() => setPressedApp(null)}
@@ -1125,7 +1181,7 @@ const Dock = memo(function Dock() {
 										)}
 										<motion.div
 											className="dock-icon"
-											variants={iconVariants}
+											variants={ICON_VARIANTS}
 											animate={
 												pressedApp === itemKey(startItem)
 													? "tap"
@@ -1269,7 +1325,7 @@ const Dock = memo(function Dock() {
 												)}
 												<motion.div
 													className="dock-icon"
-													variants={iconVariants}
+													variants={ICON_VARIANTS}
 													animate={
 														pressedApp === itemKey(app)
 															? "tap"
@@ -1431,7 +1487,7 @@ const Dock = memo(function Dock() {
 										)}
 										<motion.div
 											className="dock-icon"
-											variants={iconVariants}
+											variants={ICON_VARIANTS}
 											animate={
 												pressedApp === itemKey(app)
 													? "tap"

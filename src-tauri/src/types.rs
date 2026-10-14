@@ -80,6 +80,7 @@ pub struct VolumeChangeEvent {
 pub struct WifiStatus {
     pub enabled: bool,
     pub connected: bool,
+    pub ethernet_connected: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -89,4 +90,20 @@ pub struct AudioSessionInfo {
     pub process_path: Option<String>,
     pub volume: f32,
     pub is_muted: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SearchFileItem {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub ext: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AudioDeviceStatus {
+    pub headphone_connected: bool,
+    pub headphone_name: String,
+    pub mic_connected: bool,
+    pub mic_name: String,
 }

@@ -161,6 +161,8 @@ function SettingsApp() {
 							handleNotchEdgeDelayChange={settings.handleNotchEdgeDelayChange}
 							calendarEnabled={settings.calendarEnabled}
 							toggleCalendar={settings.toggleCalendar}
+							appsEnabled={settings.appsEnabled}
+							toggleApps={settings.toggleApps}
 							powerModeEnabled={settings.powerModeEnabled}
 							togglePowerMode={settings.togglePowerMode}
 							wallpaperModeEnabled={settings.wallpaperModeEnabled}
@@ -192,6 +194,18 @@ function SettingsApp() {
 							handleCityClear={settings.handleCityClear}
 							statusWidgets={settings.statusWidgets}
 							handleWidgetsChange={settings.handleWidgetsChange}
+							notchControlSavings={settings.notchControlSavings}
+							toggleNotchControlSavings={settings.toggleNotchControlSavings}
+							notchControlDnd={settings.notchControlDnd}
+							toggleNotchControlDnd={settings.toggleNotchControlDnd}
+							notchControlAirplane={settings.notchControlAirplane}
+							toggleNotchControlAirplane={settings.toggleNotchControlAirplane}
+							notchControlHotspot={settings.notchControlHotspot}
+							toggleNotchControlHotspot={settings.toggleNotchControlHotspot}
+							notchControlEthernet={settings.notchControlEthernet}
+							toggleNotchControlEthernet={settings.toggleNotchControlEthernet}
+							notchAudioIndicator={settings.notchAudioIndicator}
+							toggleNotchAudioIndicator={settings.toggleNotchAudioIndicator}
 						/>
 					)}
 					{activeTab === "dock" && (

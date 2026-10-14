@@ -726,6 +726,7 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
 
                         // Skip all heavy processing if nothing is playing
                         if !ANY_MEDIA_PLAYING.load(Ordering::Relaxed) {
+                            std::thread::sleep(std::time::Duration::from_millis(120));
                             // Still gotta clear the buffer to avoid lag when it starts
                             loop {
                                 let len = match capture_client.GetNextPacketSize() {
@@ -890,6 +891,82 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
     });
 }
 
+pub fn query_audio_devices_status(
+    enumerator: &windows::Win32::Media::Audio::IMMDeviceEnumerator,
+) -> crate::types::AudioDeviceStatus {
+    use windows::Win32::Foundation::PROPERTYKEY;
+    use windows::Win32::Media::Audio::{eCapture, eConsole, eRender};
+    use windows::Win32::System::Com::STGM;
+
+    const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
+        fmtid: windows::core::GUID {
+            data1: 0xa45c254e,
+            data2: 0xdf1c,
+            data3: 0x4efd,
+            data4: [0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0],
+        },
+        pid: 14,
+    };
+
+    let mut headphone_connected = false;
+    let mut headphone_name = String::new();
+    let mut mic_connected = false;
+    let mut mic_name = String::new();
+
+    unsafe {
+        // 1. Render endpoint (Speakers / Headphones)
+        if let Ok(render_dev) = enumerator.GetDefaultAudioEndpoint(eRender, eConsole) {
+            if let Ok(store) = render_dev.OpenPropertyStore(STGM(0)) {
+                if let Ok(prop) = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME) {
+                    if let Ok(pwstr) = windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(&prop) {
+                        let name = String::from_utf16_lossy(pwstr.as_wide()).trim().to_string();
+                        windows::Win32::System::Com::CoTaskMemFree(Some(pwstr.0 as *const _));
+                        let lower = name.to_lowercase();
+                        if lower.contains("headphone")
+                            || lower.contains("headset")
+                            || lower.contains("earphone")
+                            || lower.contains("airpod")
+                            || lower.contains("buds")
+                            || lower.contains("wh-")
+                            || lower.contains("wf-")
+                            || lower.contains("wireless stereo")
+                            || (lower.contains("bluetooth") && !lower.contains("speaker"))
+                        {
+                            headphone_connected = true;
+                        }
+                        headphone_name = name;
+                    }
+                    let mut prop_mut = prop;
+                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(&mut prop_mut);
+                }
+            }
+        }
+
+        // 2. Capture endpoint (Microphone)
+        if let Ok(capture_dev) = enumerator.GetDefaultAudioEndpoint(eCapture, eConsole) {
+            mic_connected = true;
+            if let Ok(store) = capture_dev.OpenPropertyStore(STGM(0)) {
+                if let Ok(prop) = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME) {
+                    if let Ok(pwstr) = windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(&prop) {
+                        let name = String::from_utf16_lossy(pwstr.as_wide()).trim().to_string();
+                        windows::Win32::System::Com::CoTaskMemFree(Some(pwstr.0 as *const _));
+                        mic_name = name;
+                    }
+                    let mut prop_mut = prop;
+                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(&mut prop_mut);
+                }
+            }
+        }
+    }
+
+    crate::types::AudioDeviceStatus {
+        headphone_connected,
+        headphone_name,
+        mic_connected,
+        mic_name,
+    }
+}
+
 pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
     let (tx, rx) = channel::<SystemCommand>();
     let handle_system = app_handle.clone();
@@ -931,6 +1008,10 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 }
             }
 
+            let mut last_headphone_state: Option<bool> = None;
+            let mut last_mic_state: Option<bool> = None;
+            let mut last_headphone_name = String::new();
+
             let mut manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
                 .and_then(|op| op.get())
                 .ok();
@@ -966,6 +1047,17 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                 if last_device_check.elapsed().as_secs() >= 2 {
                     last_device_check = std::time::Instant::now();
                     if let Some(ref enum_ref) = enumerator {
+                        let audio_status = query_audio_devices_status(enum_ref);
+                        if last_headphone_state != Some(audio_status.headphone_connected)
+                            || last_mic_state != Some(audio_status.mic_connected)
+                            || last_headphone_name != audio_status.headphone_name
+                        {
+                            last_headphone_state = Some(audio_status.headphone_connected);
+                            last_mic_state = Some(audio_status.mic_connected);
+                            last_headphone_name = audio_status.headphone_name.clone();
+                            let _ = handle_system.emit("audio-device-changed", &audio_status);
+                        }
+
                         if let Ok(new_device) = enum_ref.GetDefaultAudioEndpoint(eRender, eConsole)
                         {
                             if let Ok(id) = new_device.GetId() {
@@ -1068,18 +1160,24 @@ pub fn setup_system_worker(app_handle: AppHandle) -> Sender<SystemCommand> {
                         }
                     }
                 }
-                if last_processed_media.elapsed().as_millis() >= 2000 {
+                if last_processed_media.elapsed().as_millis() >= 400 {
                     last_processed_media = std::time::Instant::now();
                     let mut best_info: Option<MediaInfo> = None;
                     if let Some(ref mgr) = manager {
                         if let Ok(sessions) = mgr.GetSessions() {
                             for i in 0..sessions.Size().unwrap_or(0) {
                                 if let Ok(session) = sessions.GetAt(i) {
-                                    let is_playing = session
-										.GetPlaybackInfo()
-										.ok()
-										.and_then(|p| p.PlaybackStatus().ok())
-										== Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+                                    let playback_status = session
+                                        .GetPlaybackInfo()
+                                        .ok()
+                                        .and_then(|p| p.PlaybackStatus().ok());
+                                    let is_playing = playback_status
+                                        == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+                                    let is_paused = playback_status
+                                        == Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused);
+                                    if !is_playing && !is_paused {
+                                        continue;
+                                    }
                                     if let Ok(props) =
                                         session.TryGetMediaPropertiesAsync().and_then(|op| op.get())
                                     {
@@ -2002,6 +2100,10 @@ static MH_RIGHT_EXPIRY_MS: AtomicI64 = AtomicI64::new(0);
 static MH_LAST_MONITOR_UPDATE_MS: AtomicI64 = AtomicI64::new(0);
 static MH_CACHED_MON_POS: Mutex<Option<(i32, i32)>> = Mutex::new(None);
 static MH_CACHED_MON_SIZE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
+static MH_CACHED_MON_X: AtomicI32 = AtomicI32::new(0);
+static MH_CACHED_MON_Y: AtomicI32 = AtomicI32::new(0);
+static MH_CACHED_MON_W: AtomicI32 = AtomicI32::new(1920);
+static MH_CACHED_MON_H: AtomicI32 = AtomicI32::new(1080);
 static MH_LAST_PROCESS_MS: AtomicI64 = AtomicI64::new(0);
 static CAPTURE_UI_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURE_RECHECK: AtomicBool = AtomicBool::new(true);
@@ -2215,17 +2317,9 @@ fn top_edge_dwell_ms(app_handle: &AppHandle) -> i64 {
 /// True when the cursor sits inside the top-edge hot band on the primary
 /// monitor. Shared by the dwell gate and top-edge hit-testing continuity.
 fn in_top_edge_band(cursor: windows::Win32::Foundation::POINT, scale: f64) -> bool {
-    let (mon_x, mon_y) = MH_CACHED_MON_POS
-        .lock()
-        .ok()
-        .and_then(|g| *g)
-        .unwrap_or((0, 0));
-    let mon_w = MH_CACHED_MON_SIZE
-        .lock()
-        .ok()
-        .and_then(|g| *g)
-        .map(|s| s.0 as i32)
-        .unwrap_or(1920);
+    let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
+    let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
+    let mon_w = MH_CACHED_MON_W.load(Ordering::Relaxed);
 
     cursor.y <= (mon_y + (TOP_EDGE_BAND_PX * scale) as i32)
         && cursor.x >= mon_x
@@ -2317,9 +2411,9 @@ fn update_main_interaction(
     // dwell-gated, and fixed mode (always visible) skips it entirely. This is
     // about showing the notch — the hit-testing continuity below is separate
     // and must stay immediate.
-    let edge_armed = if notch_mode_reserves_work_area(
-        get_setting_str(app_handle, "bloom-notch-mode").as_deref(),
-    ) {
+    let mode_str = get_setting_str(app_handle, "bloom-notch-mode");
+    let is_fixed = mode_str.as_deref() == Some("fixed") || mode_str.is_none();
+    let edge_armed = if is_fixed {
         MH_TOP_EDGE_ENTER_MS.store(0, Ordering::Relaxed);
         MH_TOP_EDGE_ARMED.store(false, Ordering::Relaxed);
         false
@@ -2349,13 +2443,13 @@ fn update_main_interaction(
     if let Some((win_pos, _)) = main_rect_val {
         if let Ok(region) = NOTCH_RECT.try_lock() {
             if let Some(r) = *region {
-                let pad_x = (20.0 * scale) as i32;
-                let pad_y_bottom = (5.0 * scale) as i32;
+                let pad_x = (25.0 * scale) as i32;
+                let pad_y_bottom = (25.0 * scale) as i32;
                 // Hysteresis keeps the notch interactive a little past its
                 // bounds once grabbed, so removing the edge-forced
                 // interactivity doesn't reintroduce boundary flicker.
                 let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 {
-                    (10.0 * scale) as i32
+                    (15.0 * scale) as i32
                 } else {
                     0
                 };
@@ -2368,6 +2462,10 @@ fn update_main_interaction(
                     && cursor.x <= (rx + rw)
                     && cursor.y >= ry_top
                     && cursor.y <= ry_bottom;
+
+                if in_notch_rect {
+                    MH_TOPBAR_EXPIRY_MS.store(now + 400, Ordering::Relaxed);
+                }
 
                 // Approaching along the top edge keeps the window interactive
                 // while near the notch's horizontal span. This must stay
@@ -2382,9 +2480,12 @@ fn update_main_interaction(
                     && cursor.x <= rx + rw + edge_pad;
 
                 let notch_visible = NOTCH_IS_VISIBLE.load(Ordering::Relaxed);
-                let hover_active =
-                    is_notch_hovered || now < MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
+                let expiry = MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
+                let hover_active = is_notch_hovered || now < expiry;
                 if (notch_visible || hover_active) && (in_notch_rect || in_top_span) {
+                    is_click_interactive = true;
+                } else if hover_active && now < expiry {
+                    // Grace period keeps click-interactive during brief boundary exits or scrolling
                     is_click_interactive = true;
                 }
 
@@ -2410,13 +2511,6 @@ fn update_main_interaction(
     let prev_ignore = MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed);
     let new_ignore = if final_ignore { 1 } else { 0 };
     if prev_ignore != new_ignore {
-        // Z-order re-assertion is a synchronous window operation; skip it
-        // while a drag may be active, where it can visibly hitch the drag.
-        if !drag_held {
-            if let Ok(hwnd) = main_win.hwnd() {
-                re_assert_topmost(hwnd);
-            }
-        }
         let _ = main_win.set_ignore_cursor_events(final_ignore);
         MH_LAST_MAIN_IGNORE.store(new_ignore, Ordering::Relaxed);
         // Once the window is click-through the webview can never receive the
@@ -2434,17 +2528,25 @@ fn update_main_interaction(
 /// catches boundary crossings the movement-only hook misses (so the click-
 /// through flip — and its hover-clear — always happens).
 fn setup_top_edge_watchdog(app_handle: AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_millis(TOP_EDGE_POLL_MS));
-        if CAPTURE_UI_ACTIVE.load(Ordering::Relaxed) || SHUTTING_DOWN.load(Ordering::Relaxed) {
-            continue;
+    std::thread::spawn(move || {
+        let mut last_pt = windows::Win32::Foundation::POINT::default();
+        loop {
+            std::thread::sleep(Duration::from_millis(TOP_EDGE_POLL_MS));
+            if CAPTURE_UI_ACTIVE.load(Ordering::Relaxed) || SHUTTING_DOWN.load(Ordering::Relaxed) {
+                continue;
+            }
+            let mut pt = windows::Win32::Foundation::POINT::default();
+            if unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut pt) }.is_err() {
+                continue;
+            }
+            let enter_ms = MH_TOP_EDGE_ENTER_MS.load(Ordering::Relaxed);
+            if pt.x == last_pt.x && pt.y == last_pt.y && enter_ms == 0 {
+                continue;
+            }
+            last_pt = pt;
+            let fg_fs = CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed);
+            update_main_interaction(&app_handle, pt, now_ms(), fg_fs);
         }
-        let mut pt = windows::Win32::Foundation::POINT::default();
-        if unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut pt) }.is_err() {
-            continue;
-        }
-        let fg_fs = CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed);
-        update_main_interaction(&app_handle, pt, now_ms(), fg_fs);
     });
 }
 
@@ -2505,16 +2607,28 @@ unsafe extern "system" fn mouse_hook_proc(
                     let size = *monitor.size();
                     *MH_CACHED_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
                     *MH_CACHED_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
+                    MH_CACHED_MON_X.store(pos.x, Ordering::Relaxed);
+                    MH_CACHED_MON_Y.store(pos.y, Ordering::Relaxed);
+                    MH_CACHED_MON_W.store(size.width as i32, Ordering::Relaxed);
+                    MH_CACHED_MON_H.store(size.height as i32, Ordering::Relaxed);
                     MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
                 }
             }
 
-            let cached_pos = MH_CACHED_MON_POS.lock().unwrap().unwrap_or((0, 0));
-            let cached_size = MH_CACHED_MON_SIZE.lock().unwrap().unwrap_or((1920, 1080));
-            let mon_x = cached_pos.0;
-            let mon_y = cached_pos.1;
-            let mon_w = cached_size.0 as i32;
-            let mon_h = cached_size.1 as i32;
+            let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
+            let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
+            let mon_w = MH_CACHED_MON_W.load(Ordering::Relaxed);
+            let mon_h = MH_CACHED_MON_H.load(Ordering::Relaxed);
+
+            // Fast spatial early-out: If both notch and dock are currently click-through,
+            // no menu is open, and cursor is well inside middle screen, skip expensive hit-testing.
+            let main_ignored = MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 1;
+            let dock_ignored = MH_LAST_DOCK_IGNORE.load(Ordering::Relaxed) == 1;
+            let menu_open = MENU_IS_OPEN.load(Ordering::Relaxed);
+            let in_middle = cursor.y > (mon_y + 440) && cursor.y < (mon_y + mon_h - 220) && cursor.x > (mon_x + 30);
+            if main_ignored && dock_ignored && !menu_open && in_middle {
+                return CallNextHookEx(None, code, wparam, lparam);
+            }
 
             let fg_fs = CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed);
 
@@ -2550,14 +2664,14 @@ unsafe extern "system" fn mouse_hook_proc(
                             if let Ok(region) = DOCK_RECT.try_lock() {
                                 if let Some(r) = *region {
                                     let scale = dock_win.scale_factor().unwrap_or(1.0);
-                                    let pad_x = (5.0 * scale) as i32;
-                                    let pad_y_top = (8.0 * scale) as i32;
-                                    let pad_y_bottom = (5.0 * scale) as i32;
+                                    let pad_x = (15.0 * scale) as i32;
+                                    let pad_y_top = (15.0 * scale) as i32;
+                                    let pad_y_bottom = (10.0 * scale) as i32;
                                     // Hysteresis keeps the dock interactive a little past
                                     // its bounds once grabbed, so removing the edge-forced
                                     // interactivity doesn't reintroduce boundary flicker.
                                     let hyst = if MH_LAST_DOCK_IGNORE.load(Ordering::Relaxed) == 0 {
-                                        (10.0 * scale) as i32
+                                        (15.0 * scale) as i32
                                     } else {
                                         0
                                     };
@@ -2576,30 +2690,30 @@ unsafe extern "system" fn mouse_hook_proc(
                                         && cursor.y <= (ry + rh)
                                     {
                                         is_click_interactive = true;
+                                        MH_DOCK_EXPIRY_MS.store(now + 400, Ordering::Relaxed);
                                     }
                                     dock_span = Some((rx, rx + rw));
                                 }
                             }
 
-                            if !is_click_interactive && MENU_IS_OPEN.load(Ordering::Relaxed) {
-                                if let Ok(rect) = MENU_RECT.try_lock() {
-                                    if let Some(r) = *rect {
-                                        let scale = dock_win.scale_factor().unwrap_or(1.0);
-                                        let rx = win_pos.x + (r.x as f64 * scale) as i32
-                                            - (5.0 * scale) as i32;
-                                        let ry = win_pos.y + (r.y as f64 * scale) as i32
-                                            - (5.0 * scale) as i32;
-                                        let rw =
-                                            (r.width as f64 * scale) as i32 + (10.0 * scale) as i32;
-                                        let rh = (r.height as f64 * scale) as i32
-                                            + (10.0 * scale) as i32;
-                                        if cursor.x >= rx
-                                            && cursor.x <= (rx + rw)
-                                            && cursor.y >= ry
-                                            && cursor.y <= (ry + rh)
-                                        {
-                                            is_click_interactive = true;
-                                        }
+                            if MENU_IS_OPEN.load(Ordering::Relaxed) {
+                                // While context menu or popup is open, keep dock fully interactive
+                                is_click_interactive = true;
+                                MH_DOCK_EXPIRY_MS.store(now + 600, Ordering::Relaxed);
+                            } else if let Ok(rect) = MENU_RECT.try_lock() {
+                                if let Some(r) = *rect {
+                                    let scale = dock_win.scale_factor().unwrap_or(1.0);
+                                    let pad = (20.0 * scale) as i32;
+                                    let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad;
+                                    let ry = win_pos.y + (r.y as f64 * scale) as i32 - pad;
+                                    let rw = (r.width as f64 * scale) as i32 + (pad * 2);
+                                    let rh = (r.height as f64 * scale) as i32 + (pad * 2);
+                                    if cursor.x >= rx
+                                        && cursor.x <= (rx + rw)
+                                        && cursor.y >= ry
+                                        && cursor.y <= (ry + rh)
+                                    {
+                                        is_click_interactive = true;
                                     }
                                 }
                             }
@@ -2645,9 +2759,6 @@ unsafe extern "system" fn mouse_hook_proc(
                     let prev_ignore = MH_LAST_DOCK_IGNORE.load(Ordering::Relaxed);
                     let new_ignore = if should_ignore { 1 } else { 0 };
                     if prev_ignore != new_ignore {
-                        if let Ok(hwnd) = dock_win.hwnd() {
-                            re_assert_topmost(hwnd);
-                        }
                         let _ = dock_win.set_ignore_cursor_events(should_ignore);
                         MH_LAST_DOCK_IGNORE.store(new_ignore, Ordering::Relaxed);
                     }
@@ -2921,10 +3032,32 @@ pub fn trigger_app_scan() {
                                                 } else {
                                                     None
                                                 };
+                                            let icon = {
+                                                use windows::Win32::UI::Shell::{
+                                                    SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON,
+                                                    SHGFI_LARGEICON, SHGFI_PIDL,
+                                                };
+                                                use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
+                                                let mut shfi: SHFILEINFOW = std::mem::zeroed();
+                                                let res = SHGetFileInfoW(
+                                                    windows::core::PCWSTR(absolute_pidl as *const _),
+                                                    Default::default(),
+                                                    Some(&mut shfi),
+                                                    std::mem::size_of::<SHFILEINFOW>() as u32,
+                                                    SHGFI_PIDL | SHGFI_ICON | SHGFI_LARGEICON,
+                                                );
+                                                if res != 0 && !shfi.hIcon.is_invalid() {
+                                                    let b64 = crate::utils::icon_to_base64(shfi.hIcon);
+                                                    let _ = DestroyIcon(shfi.hIcon);
+                                                    b64
+                                                } else {
+                                                    None
+                                                }
+                                            };
                                             apps.push(AppInfo {
                                                 name,
                                                 path,
-                                                icon: None,
+                                                icon,
                                                 is_running: false,
                                                 hwnd: None,
                                                 executable,
@@ -3069,10 +3202,33 @@ fn collect_shortcuts(dir: &std::path::Path, apps: &mut Vec<AppInfo>, depth: i32)
                     });
 
                 if !apps.iter().any(|a| a.name == name || a.path == path_str) {
+                    let icon = unsafe {
+                        use windows::Win32::UI::Shell::{
+                            SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
+                        };
+                        use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
+                        let mut shfi: SHFILEINFOW = std::mem::zeroed();
+                        let path_u16: Vec<u16> =
+                            path_str.encode_utf16().chain(std::iter::once(0)).collect();
+                        let res = SHGetFileInfoW(
+                            windows::core::PCWSTR(path_u16.as_ptr()),
+                            Default::default(),
+                            Some(&mut shfi),
+                            std::mem::size_of::<SHFILEINFOW>() as u32,
+                            SHGFI_ICON | SHGFI_LARGEICON,
+                        );
+                        if res != 0 && !shfi.hIcon.is_invalid() {
+                            let b64 = crate::utils::icon_to_base64(shfi.hIcon);
+                            let _ = DestroyIcon(shfi.hIcon);
+                            b64
+                        } else {
+                            None
+                        }
+                    };
                     apps.push(AppInfo {
                         name,
                         path: path_str,
-                        icon: None,
+                        icon,
                         is_running: false,
                         hwnd: None,
                         executable,
@@ -3104,65 +3260,50 @@ pub fn sync_overlays(app: &AppHandle) {
     }
 }
 
+#[allow(dead_code)]
 pub fn register_appbar(window: tauri::WebviewWindow) {
+    reposition_main_window(&window);
+}
+
+pub fn reposition_main_window(window: &tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = window.app_handle().primary_monitor() {
         let m_size = monitor.size();
         let m_pos = monitor.position();
-        let hwnd = window.hwnd().unwrap();
+        let hwnd = match window.hwnd() {
+            Ok(h) => h,
+            Err(_) => return,
+        };
         let scale = monitor.scale_factor();
         let bloom_scale = crate::utils::get_bloom_scale(window.app_handle());
-        let ph = ((420.0 * bloom_scale) * scale) as i32;
-        let pr = ((40.0 * bloom_scale) * scale) as i32; // Scale the reserved top screen space
+        let ph = ((520.0 * bloom_scale) * scale) as i32;
+        let width = m_size.width as i32;
 
         unsafe {
             use windows::Win32::Foundation::RECT;
-            use windows::Win32::UI::Shell::{
-                SHAppBarMessage, ABE_TOP, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA,
-            };
             use windows::Win32::UI::WindowsAndMessaging::{
                 GetWindowLongPtrW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE,
                 SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER, WS_EX_NOACTIVATE as WS_EX_NA,
                 WS_EX_TOOLWINDOW,
             };
 
-            // Set styles first
+            // Unconditionally remove any shell AppBar reservation so Windows desktop
+            // work area stays full screen for all applications.
+            unregister_appbar_native(hwnd);
+            MAIN_APPBAR_REGISTERED.store(false, Ordering::Relaxed);
+
+            // Set extended styles: ToolWindow and NoActivate
             let mut ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as usize;
             ex_style |= (WS_EX_TOOLWINDOW.0 | WS_EX_NA.0) as usize;
             let _ = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style as isize);
-
-            let mut abd = APPBARDATA {
-                cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-                hWnd: hwnd,
-                ..Default::default()
-            };
-
-            if !MAIN_APPBAR_REGISTERED.load(Ordering::Relaxed) {
-                SHAppBarMessage(ABM_NEW, &mut abd);
-                MAIN_APPBAR_REGISTERED.store(true, Ordering::Relaxed);
-            }
-
-            abd.uEdge = ABE_TOP;
-            abd.rc = RECT {
-                left: m_pos.x,
-                top: m_pos.y,
-                right: m_pos.x + m_size.width as i32,
-                bottom: m_pos.y + pr,
-            };
-
-            SHAppBarMessage(ABM_QUERYPOS, &mut abd);
-            SHAppBarMessage(ABM_SETPOS, &mut abd);
-
-            // Use the shell-approved rect for the final position, but keep our ph height for the window
-            let final_width = abd.rc.right - abd.rc.left;
 
             let mut current_rect = RECT::default();
             let mut already_positioned = false;
             if GetWindowRect(hwnd, &mut current_rect).is_ok() {
                 let current_width = current_rect.right - current_rect.left;
                 let current_height = current_rect.bottom - current_rect.top;
-                if current_rect.left == abd.rc.left
-                    && current_rect.top == abd.rc.top
-                    && current_width == final_width
+                if current_rect.left == m_pos.x
+                    && current_rect.top == m_pos.y
+                    && current_width == width
                     && current_height == ph
                 {
                     already_positioned = true;
@@ -3173,18 +3314,14 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
                 let _ = SetWindowPos(
                     hwnd,
                     None,
-                    abd.rc.left,
-                    abd.rc.top,
-                    final_width,
+                    m_pos.x,
+                    m_pos.y,
+                    width,
                     ph,
                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
                 );
             }
 
-            // Re-assert topmost after repositioning — use re_assert_topmost instead of
-            // set_always_on_top(true) to include SWP_NOACTIVATE and re-stamp WS_EX_NOACTIVATE.
-            // This prevents WM_ACTIVATE from reaching WebView2, which caused bloom windows
-            // to blank/hide when other windows were minimized or closed.
             re_assert_topmost(hwnd);
 
             if !window.is_visible().unwrap_or(false) {
@@ -3197,9 +3334,7 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
             for _ in 0..10 {
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 if let Ok(Some(_monitor)) = w.app_handle().primary_monitor() {
-                    // Reconcile rather than register directly: the notch mode
-                    // may have changed while waiting for the monitor.
-                    reconcile_main_appbar(w.app_handle());
+                    reposition_main_window(&w);
                     break;
                 }
             }
@@ -3219,23 +3354,13 @@ fn lock_main_appbar() -> std::sync::MutexGuard<'static, ()> {
 
 /// Apply a reservation decision to the main window. Callers must hold
 /// `MAIN_APPBAR_LOCK`.
-fn set_main_appbar_reservation(main_win: tauri::WebviewWindow, reserve: bool) {
-    if reserve {
-        register_appbar(main_win);
-    } else if let Ok(hwnd) = main_win.hwnd() {
-        // Ask the shell to remove the reservation unconditionally: the flag
-        // may look clean while the shell still holds the strip.
-        unregister_appbar_native(hwnd);
-        MAIN_APPBAR_REGISTERED.store(false, Ordering::Relaxed);
-        re_assert_topmost(hwnd);
-    }
+fn set_main_appbar_reservation(main_win: tauri::WebviewWindow, _reserve: bool) {
+    reposition_main_window(&main_win);
 }
 
-/// Whether the notch's 40px top strip should currently be reserved as an AppBar.
-/// Only fixed mode reserves screen space; smart and peek hide the notch freely.
-/// An unset mode defaults to fixed, matching SETTINGS.md and `re_register_appbars`.
-fn notch_mode_reserves_work_area(mode: Option<&str>) -> bool {
-    mode.map(|m| m == "fixed").unwrap_or(true)
+/// The notch now floats cleanly on top and never reserves desktop work area.
+fn notch_mode_reserves_work_area(_mode: Option<&str>) -> bool {
+    false
 }
 
 /// Bring the main AppBar registration in line with the configured notch mode.
@@ -3291,8 +3416,6 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
         let m_size = monitor.size();
         let m_pos = monitor.position();
         let hwnd = window.hwnd().unwrap();
-        let scale = monitor.scale_factor();
-        let bloom_scale = crate::utils::get_bloom_scale(window.app_handle());
 
         // ph = full physical window height. outer_size() can return 0 before the
         // window has rendered. Never guess a value — bail and let the retry wrapper handle it.
@@ -3308,8 +3431,6 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
             return;
         }
 
-        let pr = ((56.0 * bloom_scale) * scale) as i32;
-
         // Serialize with disable_dock_appbar, then check the setting again.
         // A pending registration must not outlive a dock-disable request.
         let _guard = lock_dock_appbar();
@@ -3319,13 +3440,11 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
 
         unsafe {
             use windows::Win32::Foundation::RECT;
-            use windows::Win32::UI::Shell::{
-                SHAppBarMessage, ABE_BOTTOM, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA,
-            };
             use windows::Win32::UI::WindowsAndMessaging::{
-                GetWindowLongPtrW, GetWindowRect, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE,
-                SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER, WS_EX_NOACTIVATE as WS_EX_NA,
-                WS_EX_TOOLWINDOW,
+                GetWindowLongPtrW, GetWindowRect, SetWindowLongPtrW, SetWindowPos,
+                SystemParametersInfoW, GWL_EXSTYLE, SPIF_SENDCHANGE, SPIF_UPDATEINIFILE,
+                SPI_SETWORKAREA, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER,
+                WS_EX_NOACTIVATE as WS_EX_NA, WS_EX_TOOLWINDOW,
             };
 
             // Set extended styles (ToolWindow and NoActivate)
@@ -3336,39 +3455,34 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
             // Hide native taskbar first to free up space
             set_taskbar_visibility(false, false);
 
-            let mut abd = APPBARDATA {
-                cbSize: std::mem::size_of::<APPBARDATA>() as u32,
-                hWnd: hwnd,
-                ..Default::default()
-            };
+            // Unconditionally remove any shell AppBar reservation so Windows desktop
+            // work area stays full screen for all applications (fitting software in full window with zero dead space).
+            unregister_appbar_native(hwnd);
+            DOCK_APPBAR_REGISTERED.store(false, Ordering::Relaxed);
 
-            if !DOCK_APPBAR_REGISTERED.load(Ordering::Relaxed) {
-                SHAppBarMessage(ABM_NEW, &mut abd);
-                DOCK_APPBAR_REGISTERED.store(true, Ordering::Relaxed);
-            }
-
-            abd.uEdge = ABE_BOTTOM;
-            abd.rc = RECT {
+            // Restore the full monitor rect as the desktop work area so all applications fit full window
+            let full_rect = RECT {
                 left: m_pos.x,
-                top: m_pos.y + m_size.height as i32 - pr,
+                top: m_pos.y,
                 right: m_pos.x + m_size.width as i32,
                 bottom: m_pos.y + m_size.height as i32,
             };
+            let _ = SystemParametersInfoW(
+                SPI_SETWORKAREA,
+                0,
+                Some(&full_rect as *const _ as *mut _),
+                SPIF_SENDCHANGE | SPIF_UPDATEINIFILE,
+            );
 
-            SHAppBarMessage(ABM_QUERYPOS, &mut abd);
-            SHAppBarMessage(ABM_SETPOS, &mut abd);
-
-            // Critical: Force the window to the actual bottom of the screen,
-            // ignoring what ABM_SETPOS might have tried to "correct" (like stacking on invisible taskbar)
             let final_y = m_pos.y + m_size.height as i32 - ph;
-            let final_width = abd.rc.right - abd.rc.left;
+            let final_width = m_size.width as i32;
 
             let mut current_rect = RECT::default();
             let mut already_positioned = false;
             if GetWindowRect(hwnd, &mut current_rect).is_ok() {
                 let current_width = current_rect.right - current_rect.left;
                 let current_height = current_rect.bottom - current_rect.top;
-                if current_rect.left == abd.rc.left
+                if current_rect.left == m_pos.x
                     && current_rect.top == final_y
                     && current_width == final_width
                     && current_height == ph
@@ -3381,7 +3495,7 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
                 let _ = SetWindowPos(
                     hwnd,
                     None,
-                    abd.rc.left,
+                    m_pos.x,
                     final_y,
                     final_width,
                     ph,
@@ -3703,10 +3817,23 @@ fn reposition_autohide_dock(app_handle: &AppHandle, dock_win: tauri::WebviewWind
             if let Some((m_w, m_h, m_x, m_y)) = monitor_info {
                 let final_y = m_y + m_h - ph;
                 unsafe {
-                    use windows::Win32::Foundation::HWND;
+                    use windows::Win32::Foundation::{HWND, RECT};
                     use windows::Win32::UI::WindowsAndMessaging::{
-                        SetWindowPos, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER,
+                        SetWindowPos, SystemParametersInfoW, SPIF_SENDCHANGE, SPIF_UPDATEINIFILE,
+                        SPI_SETWORKAREA, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER,
                     };
+                    let full_rect = RECT {
+                        left: m_x,
+                        top: m_y,
+                        right: m_x + m_w,
+                        bottom: m_y + m_h,
+                    };
+                    let _ = SystemParametersInfoW(
+                        SPI_SETWORKAREA,
+                        0,
+                        Some(&full_rect as *const _ as *mut _),
+                        SPIF_SENDCHANGE | SPIF_UPDATEINIFILE,
+                    );
                     let _ = SetWindowPos(
                         HWND(hwnd_val as *mut _),
                         None,
@@ -3948,14 +4075,12 @@ mod tests {
     }
 
     #[test]
-    fn only_fixed_notch_mode_reserves_the_work_area() {
-        assert!(notch_mode_reserves_work_area(Some("fixed")));
+    fn notch_never_reserves_work_area() {
+        assert!(!notch_mode_reserves_work_area(Some("fixed")));
         assert!(!notch_mode_reserves_work_area(Some("smart")));
         assert!(!notch_mode_reserves_work_area(Some("peek")));
-        // Legacy alias for smart
         assert!(!notch_mode_reserves_work_area(Some("auto-hide")));
-        // Unset defaults to fixed, matching SETTINGS.md
-        assert!(notch_mode_reserves_work_area(None));
+        assert!(!notch_mode_reserves_work_area(None));
     }
 
     #[test]

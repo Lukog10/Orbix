@@ -12,19 +12,40 @@ import {
 	Archive,
 	Power,
 	Image,
-	X
+	Search,
+	X,
+	Zap,
+	Moon,
+	Plane,
+	Radio,
+	Network,
+	Headphones
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { StatusWidgetConfig } from "../components/StatusWidgetConfig";
 import type { WidgetConfig } from "./types";
 
 interface NotchTabProps {
+	notchControlSavings: boolean;
+	toggleNotchControlSavings: () => void;
+	notchControlDnd: boolean;
+	toggleNotchControlDnd: () => void;
+	notchControlAirplane: boolean;
+	toggleNotchControlAirplane: () => void;
+	notchControlHotspot: boolean;
+	toggleNotchControlHotspot: () => void;
+	notchControlEthernet: boolean;
+	toggleNotchControlEthernet: () => void;
+	notchAudioIndicator: boolean;
+	toggleNotchAudioIndicator: () => void;
 	notchMode: string;
 	setNotchModeValue: (mode: string) => void;
 	notchEdgeDelay: number;
 	handleNotchEdgeDelayChange: (val: number) => void;
 	calendarEnabled: boolean;
 	toggleCalendar: () => void;
+	appsEnabled?: boolean;
+	toggleApps?: () => void;
 	powerModeEnabled: boolean;
 	togglePowerMode: () => void;
 	wallpaperModeEnabled: boolean;
@@ -64,12 +85,26 @@ interface NotchTabProps {
 }
 
 export function NotchTab({
+	notchControlSavings,
+	toggleNotchControlSavings,
+	notchControlDnd,
+	toggleNotchControlDnd,
+	notchControlAirplane,
+	toggleNotchControlAirplane,
+	notchControlHotspot,
+	toggleNotchControlHotspot,
+	notchControlEthernet,
+	toggleNotchControlEthernet,
+	notchAudioIndicator,
+	toggleNotchAudioIndicator,
 	notchMode,
 	setNotchModeValue,
 	notchEdgeDelay,
 	handleNotchEdgeDelayChange,
 	calendarEnabled,
 	toggleCalendar,
+	appsEnabled,
+	toggleApps,
 	powerModeEnabled,
 	togglePowerMode,
 	wallpaperModeEnabled,
@@ -143,6 +178,13 @@ export function NotchTab({
 				<SettingRow icon={Calendar} label="Calendar & Timer" desc="Enable productivity split-view">
 					<label className="toggle-switch">
 						<input type="checkbox" checked={calendarEnabled} onChange={toggleCalendar} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Search} label="Apps & Search" desc="Search apps, files, folders and snippets">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={appsEnabled ?? true} onChange={toggleApps} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
@@ -331,6 +373,51 @@ export function NotchTab({
 						)}
 					</div>
 				)}
+			</div>
+
+			<div className="setting-group-label">Quick Controls & Status</div>
+			<div className="setting-group">
+				<SettingRow icon={Zap} label="Energy Saver" desc="Show battery/energy saver button in control center">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchControlSavings} onChange={toggleNotchControlSavings} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Moon} label="Do Not Disturb" desc="Show DND toggle button in control center">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchControlDnd} onChange={toggleNotchControlDnd} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Plane} label="Airplane Mode" desc="Show flight/airplane mode button in control center">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchControlAirplane} onChange={toggleNotchControlAirplane} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Radio} label="Mobile Hotspot" desc="Show hotspot button in control center">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchControlHotspot} onChange={toggleNotchControlHotspot} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Network} label="Ethernet" desc="Show ethernet button in control center">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchControlEthernet} onChange={toggleNotchControlEthernet} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
+
+				<SettingRow icon={Headphones} label="Audio Device Alerts" desc="Show notification and status when headphones or microphones connect">
+					<label className="toggle-switch">
+						<input type="checkbox" checked={notchAudioIndicator} onChange={toggleNotchAudioIndicator} />
+						<span className="slider"></span>
+					</label>
+				</SettingRow>
 			</div>
 
 			<div className="setting-group-label">Widgets</div>

@@ -15,9 +15,29 @@ import {
 } from "../dockExtras";
 import type { WidgetConfig } from "./types";
 
+const saveDebounceTimers = new Map<string, any>();
+
 function saveSetting(key: string, value: string) {
+	if (saveDebounceTimers.has(key)) {
+		clearTimeout(saveDebounceTimers.get(key));
+		saveDebounceTimers.delete(key);
+	}
 	localStorage.setItem(key, value);
 	invoke("save_setting", { key, value }).catch(console.error);
+}
+
+function saveSettingDebounced(key: string, value: string, delay = 120) {
+	localStorage.setItem(key, value);
+	if (saveDebounceTimers.has(key)) {
+		clearTimeout(saveDebounceTimers.get(key));
+	}
+	saveDebounceTimers.set(
+		key,
+		setTimeout(() => {
+			saveDebounceTimers.delete(key);
+			invoke("save_setting", { key, value }).catch(console.error);
+		}, delay)
+	);
 }
 
 function readBool(val: string | null): boolean {
@@ -28,6 +48,7 @@ export function useSettings() {
 	const [autostart, setAutostart] = useState(false);
 	const [weatherEnabled, setWeatherEnabled] = useState(true);
 	const [calendarEnabled, setCalendarEnabled] = useState(true);
+	const [appsEnabled, setAppsEnabled] = useState(true);
 	const [powerModeEnabled, setPowerModeEnabled] = useState(true);
 	const [wallpaperModeEnabled, setWallpaperModeEnabled] = useState(true);
 	const [timerSoundEnabled, setTimerSoundEnabled] = useState(
@@ -37,6 +58,24 @@ export function useSettings() {
 	const [musicCompactNotch, setMusicCompactNotch] = useState(true);
 	const [shelfPersist, setShelfPersist] = useState(
 		() => localStorage.getItem("bloom-shelf-persist") === "true"
+	);
+	const [notchControlSavings, setNotchControlSavings] = useState(
+		() => localStorage.getItem("bloom-notch-control-savings") !== "false"
+	);
+	const [notchControlDnd, setNotchControlDnd] = useState(
+		() => localStorage.getItem("bloom-notch-control-dnd") !== "false"
+	);
+	const [notchControlAirplane, setNotchControlAirplane] = useState(
+		() => localStorage.getItem("bloom-notch-control-airplane") !== "false"
+	);
+	const [notchControlHotspot, setNotchControlHotspot] = useState(
+		() => localStorage.getItem("bloom-notch-control-hotspot") !== "false"
+	);
+	const [notchControlEthernet, setNotchControlEthernet] = useState(
+		() => localStorage.getItem("bloom-notch-control-ethernet") !== "false"
+	);
+	const [notchAudioIndicator, setNotchAudioIndicator] = useState(
+		() => localStorage.getItem("bloom-notch-audio-indicator") !== "false"
 	);
 	const [volumeOverlayEnabled, setVolumeOverlayEnabled] = useState(true);
 	const [volumeEdgeEnabled, setVolumeEdgeEnabled] = useState(
@@ -173,6 +212,7 @@ export function useSettings() {
 
 			apply(getVal("bloom-weather-enabled"), setWeatherEnabled, readBool);
 			apply(getVal("bloom-calendar-enabled"), setCalendarEnabled, readBool);
+			apply(getVal("bloom-apps-enabled"), setAppsEnabled, readBool);
 			apply(getVal("bloom-power-mode-enabled"), setPowerModeEnabled, readBool);
 			apply(getVal("bloom-wallpaper-mode-enabled"), setWallpaperModeEnabled, readBool);
 			apply(getVal("bloom-timer-sound-enabled"), setTimerSoundEnabled, readBool);
@@ -208,6 +248,12 @@ export function useSettings() {
 
 			apply(getVal("bloom-notch-mode"), setNotchMode, (v) => (v === "auto-hide" ? "smart" : v));
 			apply(getVal("bloom-notch-edge-delay"), setNotchEdgeDelay, parseInt);
+			apply(getVal("bloom-notch-control-savings"), setNotchControlSavings, (v) => v !== "false");
+			apply(getVal("bloom-notch-control-dnd"), setNotchControlDnd, (v) => v !== "false");
+			apply(getVal("bloom-notch-control-airplane"), setNotchControlAirplane, (v) => v !== "false");
+			apply(getVal("bloom-notch-control-hotspot"), setNotchControlHotspot, (v) => v !== "false");
+			apply(getVal("bloom-notch-control-ethernet"), setNotchControlEthernet, (v) => v !== "false");
+			apply(getVal("bloom-notch-audio-indicator"), setNotchAudioIndicator, (v) => v !== "false");
 			apply(getVal("bloom-dock-mode"), setDockMode, (v) => (v === "auto-hide" ? "smart" : v));
 
 			const savedCity = getVal("bloom-weather-city");
@@ -253,6 +299,12 @@ export function useSettings() {
 		"bloom-dock-mode": setDockMode,
 		"bloom-notch-mode": setNotchMode,
 		"bloom-notch-edge-delay": setNotchEdgeDelay,
+		"bloom-notch-control-savings": (v) => setNotchControlSavings(v !== "false"),
+		"bloom-notch-control-dnd": (v) => setNotchControlDnd(v !== "false"),
+		"bloom-notch-control-airplane": (v) => setNotchControlAirplane(v !== "false"),
+		"bloom-notch-control-hotspot": (v) => setNotchControlHotspot(v !== "false"),
+		"bloom-notch-control-ethernet": (v) => setNotchControlEthernet(v !== "false"),
+		"bloom-notch-audio-indicator": (v) => setNotchAudioIndicator(v !== "false"),
 		"bloom-dock-enabled": setDockEnabled,
 		"bloom-dock-icon-only": setDockIconOnly,
 		"bloom-dock-separator-enabled": setDockSeparatorEnabled,
@@ -267,6 +319,7 @@ export function useSettings() {
 		"bloom-dock-extras-custom-folders": setDockExtrasCustomFolders,
 		"bloom-weather-enabled": setWeatherEnabled,
 		"bloom-calendar-enabled": setCalendarEnabled,
+		"bloom-apps-enabled": setAppsEnabled,
 		"bloom-timer-sound-enabled": setTimerSoundEnabled,
 		"bloom-music-mode-enabled": setMusicModeEnabled,
 		"bloom-music-compact-notch": setMusicCompactNotch,
@@ -426,6 +479,12 @@ export function useSettings() {
 		saveSetting("bloom-calendar-enabled", String(next));
 	};
 
+	const toggleApps = () => {
+		const next = !appsEnabled;
+		setAppsEnabled(next);
+		saveSetting("bloom-apps-enabled", String(next));
+	};
+
 	const togglePowerMode = () => {
 		const next = !powerModeEnabled;
 		setPowerModeEnabled(next);
@@ -460,6 +519,42 @@ export function useSettings() {
 		const next = !shelfPersist;
 		setShelfPersist(next);
 		saveSetting("bloom-shelf-persist", String(next));
+	};
+
+	const toggleNotchControlSavings = () => {
+		const next = !notchControlSavings;
+		setNotchControlSavings(next);
+		saveSetting("bloom-notch-control-savings", String(next));
+	};
+
+	const toggleNotchControlDnd = () => {
+		const next = !notchControlDnd;
+		setNotchControlDnd(next);
+		saveSetting("bloom-notch-control-dnd", String(next));
+	};
+
+	const toggleNotchControlAirplane = () => {
+		const next = !notchControlAirplane;
+		setNotchControlAirplane(next);
+		saveSetting("bloom-notch-control-airplane", String(next));
+	};
+
+	const toggleNotchControlHotspot = () => {
+		const next = !notchControlHotspot;
+		setNotchControlHotspot(next);
+		saveSetting("bloom-notch-control-hotspot", String(next));
+	};
+
+	const toggleNotchControlEthernet = () => {
+		const next = !notchControlEthernet;
+		setNotchControlEthernet(next);
+		saveSetting("bloom-notch-control-ethernet", String(next));
+	};
+
+	const toggleNotchAudioIndicator = () => {
+		const next = !notchAudioIndicator;
+		setNotchAudioIndicator(next);
+		saveSetting("bloom-notch-audio-indicator", String(next));
 	};
 
 	const toggleMediaLayout = (layout: "classic" | "compact") => {
@@ -634,17 +729,17 @@ export function useSettings() {
 
 	const handleNotchEdgeDelayChange = (val: number) => {
 		setNotchEdgeDelay(val);
-		saveSetting("bloom-notch-edge-delay", val.toString());
+		saveSettingDebounced("bloom-notch-edge-delay", val.toString());
 	};
 
 	const handleThresholdChange = (val: number) => {
 		setLowBatteryThreshold(val);
-		saveSetting("bloom-low-battery-threshold", val.toString());
+		saveSettingDebounced("bloom-low-battery-threshold", val.toString());
 	};
 
 	const handleScaleChange = (val: number) => {
 		setScale(val);
-		saveSetting("bloom-scale", val.toString());
+		saveSettingDebounced("bloom-scale", val.toString(), 200);
 	};
 
 	const handleWidgetsChange = (config: WidgetConfig) => {
@@ -673,14 +768,14 @@ export function useSettings() {
 
 	const handleThemeColorChange = (color: string) => {
 		setThemeColor(color);
-		saveSetting("bloom-theme-color", color);
+		saveSettingDebounced("bloom-theme-color", color);
 
 		try {
 			const hsl = hexToHsl(color);
 			setThemeSaturation(hsl.s / 100);
-			saveSetting("bloom-theme-saturation", String(hsl.s / 100));
+			saveSettingDebounced("bloom-theme-saturation", String(hsl.s / 100));
 			setThemeBrightness(hsl.l / 100);
-			saveSetting("bloom-theme-brightness", String(hsl.l / 100));
+			saveSettingDebounced("bloom-theme-brightness", String(hsl.l / 100));
 		} catch (e) {
 			console.error("Failed to parse custom color HSL:", e);
 		}
@@ -688,17 +783,17 @@ export function useSettings() {
 
 	const handleOpacityChange = (value: number) => {
 		setThemeOpacity(value);
-		saveSetting("bloom-theme-opacity", String(value));
+		saveSettingDebounced("bloom-theme-opacity", String(value));
 	};
 
 	const handleSaturationChange = (value: number) => {
 		setThemeSaturation(value);
-		saveSetting("bloom-theme-saturation", String(value));
+		saveSettingDebounced("bloom-theme-saturation", String(value));
 	};
 
 	const handleBrightnessChange = (value: number) => {
 		setThemeBrightness(value);
-		saveSetting("bloom-theme-brightness", String(value));
+		saveSettingDebounced("bloom-theme-brightness", String(value));
 	};
 
 	// ── City search ──
@@ -860,10 +955,24 @@ export function useSettings() {
 		handleNotchEdgeDelayChange,
 		calendarEnabled,
 		toggleCalendar,
+		appsEnabled,
+		toggleApps,
 		powerModeEnabled,
 		togglePowerMode,
 		wallpaperModeEnabled,
 		toggleWallpaperMode,
+		notchControlSavings,
+		toggleNotchControlSavings,
+		notchControlDnd,
+		toggleNotchControlDnd,
+		notchControlAirplane,
+		toggleNotchControlAirplane,
+		notchControlHotspot,
+		toggleNotchControlHotspot,
+		notchControlEthernet,
+		toggleNotchControlEthernet,
+		notchAudioIndicator,
+		toggleNotchAudioIndicator,
 		timerSoundEnabled,
 		toggleTimerSound,
 		musicModeEnabled,

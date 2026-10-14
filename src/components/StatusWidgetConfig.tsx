@@ -28,7 +28,10 @@ import {
 	X,
 	ArrowLeftRight,
 	ChevronUp,
-	ChevronDown
+	ChevronDown,
+	Headphones,
+	Moon,
+	Zap
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -50,7 +53,10 @@ const WIDGET_DEFS: WidgetDef[] = [
 	{ id: "cpu", label: "CPU", icon: Cpu, color: "#f97316" },
 	{ id: "ram", label: "RAM", icon: MemoryStick, color: "#a78bfa" },
 	{ id: "disk", label: "Disk", icon: HardDrive, color: "#38bdf8" },
-	{ id: "net", label: "Net", icon: ArrowUpDown, color: "#2dd4bf" }
+	{ id: "net", label: "Net", icon: ArrowUpDown, color: "#2dd4bf" },
+	{ id: "audio", label: "Audio", icon: Headphones, color: "#ec4899" },
+	{ id: "dnd", label: "DND", icon: Moon, color: "#818cf8" },
+	{ id: "saver", label: "Saver", icon: Zap, color: "#eab308" }
 ];
 
 const DEFAULT_CONFIG: WidgetConfig = {
