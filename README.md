@@ -138,8 +138,8 @@ MpCmdRun.exe -SignatureUpdate
 
 ```bash
 # Clone the repository
-git clone https://github.com/SehajveerSingh2005/bloom.git zvuk
-cd zvuk
+git clone https://github.com/Lukog10/Zvuk-Shell.git
+cd Zvuk-Shell
 
 # Install frontend dependencies
 bun install
