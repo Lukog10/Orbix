@@ -8,7 +8,8 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
-		"tauri": "tauri",
+		"tauri": "bunx @tauri-apps/cli",
+		"start": "bunx @tauri-apps/cli dev",
 		"bump": "bun scripts/bump-version.mjs",
 		"release": "bun scripts/release.mjs",
 		"format": "oxfmt && cd src-tauri && cargo fmt"
