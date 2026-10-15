@@ -1,4 +1,4 @@
-import { motion, AnimatePresence, useAnimation } from "framer-motion";
+﻿import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,6 +21,8 @@ import { CompactMediaPlayer } from "./CompactMediaPlayer";
 import { PowerView } from "./components/power/PowerView";
 import { WallpaperView } from "./components/wallpaper/WallpaperView";
 import { AppsView } from "./components/apps/AppsView";
+import { ControlsView } from "./components/controls/ControlsView";
+import type { SubViewMode } from "./components/controls/types";
 import { useWeather } from "./hooks/useWeather";
 import { useSettingsSync } from "./hooks/useSettingsSync";
 import { useTrailingThrottle } from "./hooks/useTrailingThrottle";
@@ -44,9 +46,6 @@ import {
 	X,
 	ChevronLeft,
 	ChevronRight,
-	Network,
-	Radio,
-	Plane,
 	Headphones,
 	Mic,
 	Zap,
@@ -102,7 +101,7 @@ const playTimerChime = () => {
 	master.gain.value = 0.45;
 	master.connect(ctx.destination);
 
-	// Soft rising bell arpeggio (A5–C#6–E6) with a quiet octave harmonic.
+	// Soft rising bell arpeggio (A5â€“C#6â€“E6) with a quiet octave harmonic.
 	const notes = [
 		{ freq: 880.0, at: 0 },
 		{ freq: 1108.73, at: 0.18 },
@@ -133,47 +132,6 @@ const playTimerChime = () => {
 };
 
 // Simple SVG icons
-function WifiIcon({ enabled, connected }: { enabled: boolean; connected: boolean }) {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			opacity={!enabled ? 0.4 : connected ? 1 : 0.7}
-		>
-			<path d="M5 12.55a11 11 0 0 1 14.08 0" />
-			<path d="M1.42 9a16 16 0 0 1 21.16 0" />
-			<path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-			<line x1="12" y1="20" x2="12.01" y2="20" />
-		</svg>
-	);
-}
-
-function TrayIcon() {
-	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<rect x="3" y="3" width="6" height="6" rx="1" />
-			<rect x="15" y="3" width="6" height="6" rx="1" />
-			<rect x="15" y="15" width="6" height="6" rx="1" />
-			<rect x="3" y="15" width="6" height="6" rx="1" />
-		</svg>
-	);
-}
-
 function BatteryIcon({
 	charging,
 	level,
@@ -349,7 +307,7 @@ const calendarMonthRows = (() => {
 
 // Odometer-style digit for the timer clock. When the value changes the old
 // digit rolls up and out while the new one rolls in from below with a slight
-// 3D tilt — no card chrome, just the numerals.
+// 3D tilt â€” no card chrome, just the numerals.
 const RollDigit = memo(function RollDigit({
 	value,
 	compact = false
@@ -407,7 +365,7 @@ type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "sta
 // The shelf is a short-lived stash: one row, newest first, oldest evicted.
 const SHELF_MAX_ITEMS = 10;
 
-const MARQUEE_SPEED = 30; // px/s — constant for all titles
+const MARQUEE_SPEED = 30; // px/s â€” constant for all titles
 const MARQUEE_MIN_DURATION = 5; // floor so short titles don't flicker
 
 const TitleMarquee = ({ title }: { title: string }) => {
@@ -556,8 +514,6 @@ function App() {
 	const [wifiStatus, setWifiStatus] = useState<WifiStatus | null>(null);
 	const wifiEnabled = wifiStatus?.enabled ?? false;
 	const wifiConnected = wifiStatus?.connected ?? false;
-	const [ethernetOverride, setEthernetOverride] = useState<boolean | null>(null);
-	const ethernetConnected = ethernetOverride !== null ? ethernetOverride : (wifiStatus?.ethernet_connected ?? false);
 	const [airplaneModeActive, setAirplaneModeActive] = useState(false);
 	const [hotspotActive, setHotspotActive] = useState(false);
 	const [bluetoothEnabled, setBluetoothEnabled] = useState(true);
@@ -660,7 +616,7 @@ function App() {
 			audioDevicesRef.current = next;
 			setAudioDevices(next);
 
-			if (localStorage.getItem("bloom-notch-audio-indicator") !== "false") {
+			if (notchAudioIndicator) {
 				if (!prev.headphone_connected && next.headphone_connected) {
 					triggerAudioToast(
 						`Headphones: ${next.headphone_name || "Connected"}`,
@@ -882,13 +838,13 @@ function App() {
 
 		// Mirror Overlay.tsx's splash decision so we only wait when a splash will actually fire.
 		// Overlay always emits splash-done, but on a normal relaunch it emits it near-instantly
-		// (after one async getVersion() call) — before this listener would be registered.
+		// (after one async getVersion() call) â€” before this listener would be registered.
 		// By making the same decision here we avoid a race and avoid any unnecessary delay.
 		const firstRun = localStorage.getItem("bloom-first-run") === null;
 		const storedVersion = localStorage.getItem("bloom-app-version");
 
 		const waitForSplash = () => {
-			// Splash is definitely coming — register listener now (2800ms animation gives us plenty of time)
+			// Splash is definitely coming â€” register listener now (2800ms animation gives us plenty of time)
 			let started = false;
 			let interval: any;
 			const unlistenSplash = listen("splash-done", () => {
@@ -911,20 +867,20 @@ function App() {
 		};
 
 		if (firstRun || storedVersion === null) {
-			// Splash is definitely showing — wait for it
+			// Splash is definitely showing â€” wait for it
 			return waitForSplash();
 		}
 
-		// Has a version key — need async check to know if version changed
+		// Has a version key â€” need async check to know if version changed
 		let interval: any;
 		getVersion()
 			.then((currentVersion) => {
 				if (storedVersion !== currentVersion) {
-					// Version changed — splash is coming, wait for it
+					// Version changed â€” splash is coming, wait for it
 					// (splash takes 2800ms so there's plenty of time to register the listener)
 					waitForSplash();
 				} else {
-					// Same version — no splash, start immediately
+					// Same version â€” no splash, start immediately
 					interval = proceedWithStartup();
 				}
 			})
@@ -1079,7 +1035,7 @@ function App() {
 						setTimeout(() => invoke("sync_appbar"), 5000);
 					};
 
-					// Mirror Overlay.tsx's splash decision for dock init too — only wait when
+					// Mirror Overlay.tsx's splash decision for dock init too â€” only wait when
 					// a splash is actually coming, otherwise init immediately.
 					const runDockInitAfterSplash = () => {
 						let dockStarted = false;
@@ -1162,7 +1118,7 @@ function App() {
 		};
 	}, [windowLabel]);
 
-	// Settings sync — consolidated dispatch for all settings events
+	// Settings sync â€” consolidated dispatch for all settings events
 	useSettingsSync(
 		{
 			"bloom-weather-enabled": setSettingsWeatherEnabled,
@@ -1206,7 +1162,7 @@ function App() {
 		[windowLabel]
 	);
 
-	// Side effects: dock-enabled (skip first render — startup code handles initial state)
+	// Side effects: dock-enabled (skip first render â€” startup code handles initial state)
 	useEffect(() => {
 		if (windowLabel !== "main") return;
 		if (dockEnabledInitial.current) {
@@ -1243,6 +1199,7 @@ function App() {
 	}, [notchMode, windowLabel]);
 
 	// Bloom mode state: 'music', 'calendar', 'command-center', 'announcement', 'shelf', or 'status'
+	const [ccSubView, setCcSubView] = useState<SubViewMode>("main");
 	const [bloomMode, setBloomMode] = useState<BloomMode>("status");
 
 	// Shelf: files and selected text stashed in the notch via drag-and-drop.
@@ -1274,7 +1231,7 @@ function App() {
 				localStorage.removeItem("bloom-shelf-items");
 			}
 		} catch {
-			/* storage full or unavailable — shelf just won't persist */
+			/* storage full or unavailable â€” shelf just won't persist */
 		}
 	}, [shelfItems, shelfPersist]);
 
@@ -1395,7 +1352,7 @@ function App() {
 				shelfSelfDragRef.current = false;
 				// A drop recorded during this drag means it landed back on the
 				// notch, so the pointer is still over it. Otherwise the native
-				// drag owned the pointer and the webview never saw it leave —
+				// drag owned the pointer and the webview never saw it leave â€”
 				// release the hover state (flags AND the resting mode) or the
 				// shelf panel stays expanded. The command also makes the
 				// backend re-evaluate its edge-hover state immediately.
@@ -1517,7 +1474,7 @@ function App() {
 		const next = shelfItems.filter((i) => i.id !== id);
 		setShelfItems(next);
 		if (next.length === 0) {
-			// Nothing left to show — fall back to status instead of an empty shelf.
+			// Nothing left to show â€” fall back to status instead of an empty shelf.
 			clearShelfCollapse();
 			setBloomMode((mode) => (mode === "shelf" ? "status" : mode));
 		}
@@ -1568,11 +1525,11 @@ function App() {
 
 		const room = Math.max(0, SHELF_MAX_ITEMS - prev.length);
 		if (room === 0) {
-			showShelfNotice(`Shelf is full (${SHELF_MAX_ITEMS}) — remove an item first`);
+			showShelfNotice(`Shelf is full (${SHELF_MAX_ITEMS}) â€” remove an item first`);
 			return;
 		}
 		if (fresh.length > room) {
-			showShelfNotice(`Shelf is full — added ${room} of ${fresh.length} items`);
+			showShelfNotice(`Shelf is full â€” added ${room} of ${fresh.length} items`);
 		}
 		const added = fresh.slice(0, room);
 		markShelfNew(added.map((i) => i.id));
@@ -1583,7 +1540,7 @@ function App() {
 		const prev = shelfItemsRef.current;
 		if (prev.some((i) => i.type === "text" && i.text === text)) return;
 		if (prev.length >= SHELF_MAX_ITEMS) {
-			showShelfNotice(`Shelf is full (${SHELF_MAX_ITEMS}) — remove an item first`);
+			showShelfNotice(`Shelf is full (${SHELF_MAX_ITEMS}) â€” remove an item first`);
 			return;
 		}
 		const item: ShelfItem = {
@@ -1616,7 +1573,7 @@ function App() {
 				// failure (e.g. no association) must not remove it.
 				const alive = await invoke<string[]>("shelf_prune", { paths: [path] }).catch(() => null);
 				if (alive && alive.length === 0) {
-					showShelfNotice("File no longer exists — removed from shelf");
+					showShelfNotice("File no longer exists â€” removed from shelf");
 					removeShelfItem(item.id);
 				} else {
 					showShelfNotice("Couldn't open the file");
@@ -1757,7 +1714,7 @@ function App() {
 	};
 
 	const getCyclableModes = () => {
-		// Requested order: Time with stats (status) → controls (command-center) → calendar → apps → shelf → music → wallpaper → power
+		// Requested order: Time with stats (status) â†’ controls (command-center) â†’ calendar â†’ apps â†’ shelf â†’ music â†’ wallpaper â†’ power
 		const musicBeforeStatus = isPlaying && mediaInfo.has_media && settingsMusicModeEnabled;
 		const modes: BloomMode[] = musicBeforeStatus
 			? ["status", "command-center", "calendar", "apps", "shelf", "music", "wallpaper", "power"]
@@ -2351,6 +2308,10 @@ function App() {
 		[sendVolume]
 	);
 
+	const toggleMute = useCallback(() => {
+		handleVolumeChange(isMuted ? (volume > 0 ? volume : 0.5) : 0);
+	}, [handleVolumeChange, isMuted, volume]);
+
 	// Open WiFi settings
 	const openWifiSettings = useCallback(async () => {
 		try {
@@ -2503,11 +2464,11 @@ function App() {
 					<div
 						className="passive-feature"
 						key="weather"
-						title={cityName ? `${weatherCondition} — ${cityName}` : weatherCondition}
+						title={cityName ? `${weatherCondition} â€” ${cityName}` : weatherCondition}
 					>
 						<WeatherIcon size={12} strokeWidth={2.2} />
 						<span className="label">
-							{temperature}°{tempUnit === "fahrenheit" ? "F" : "C"}
+							{temperature}Â°{tempUnit === "fahrenheit" ? "F" : "C"}
 						</span>
 					</div>
 				);
@@ -2552,11 +2513,11 @@ function App() {
 					>
 						<div className="net-stacked-lines">
 							<span className="net-stacked-row up">
-								<span className="net-stacked-arrow">↑</span>
+								<span className="net-stacked-arrow">â†‘</span>
 								<span className="net-stacked-val">{formatBytesCompact(netUpSpeed)}</span>
 							</span>
 							<span className="net-stacked-row down">
-								<span className="net-stacked-arrow">↓</span>
+								<span className="net-stacked-arrow">â†“</span>
 								<span className="net-stacked-val">{formatBytesCompact(netDownSpeed)}</span>
 							</span>
 						</div>
@@ -2658,10 +2619,10 @@ function App() {
 		}
 		// Sized to the calendar's week-row count plus the timer's fixed content.
 		if (bloomMode === "calendar") return calendarMonthRows >= 6 ? 305 : 273;
-		// Shelf expands on mode alone (no hover needed — there is no cursor
+		// Shelf expands on mode alone (no hover needed â€” there is no cursor
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
-		if (bloomMode === "command-center") return isHovered ? 230 : 36;
+		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 385 : ccSubView === "bluetooth" ? 340 : 285) : 36;
 		if (bloomMode === "apps") return 400;
 		if (bloomMode === "power") return isHovered ? 124 : 36;
 		if (bloomMode === "wallpaper") return 320;
@@ -2682,6 +2643,13 @@ function App() {
 	// for mice without a scroll wheel. Hover alone keeps the notch uncluttered.
 	const showPanelArrows =
 		isHovered && notchClicked && bloomMode !== "announcement" && getCyclableModes().length > 1;
+
+	// Reset Command Center sub-view when notch is unhovered or mode changes
+	useEffect(() => {
+		if (!isHovered || bloomMode !== "command-center") {
+			setCcSubView("main");
+		}
+	}, [isHovered, bloomMode]);
 
 	// Close compact media player expansions when notch is unhovered or mode changes
 	useEffect(() => {
@@ -2774,7 +2742,7 @@ function App() {
 					onHoverStart={() => {
 						cancelNotchClose();
 						setIsHovered(true);
-						// Shelf and announcement manage their own lifetime — hovering
+						// Shelf and announcement manage their own lifetime â€” hovering
 						// must not yank the island out from under them. Hovering the
 						// shelf also cancels its post-drop auto-close.
 						if (bloomMode === "shelf") {
@@ -3180,7 +3148,7 @@ function App() {
 																		: isCharging
 																			? "Charging"
 																			: "On Battery"}{" "}
-																	• {batteryLevel}%
+																	â€¢ {batteryLevel}%
 																</span>
 															</motion.div>
 														)
@@ -3424,318 +3392,70 @@ function App() {
 								{/* Command Center Panel */}
 								<AnimatePresence>
 									{bloomMode === "command-center" && (
-										<motion.div
-											className="command-center-content-minimal"
-											onClick={(e) => e.stopPropagation()}
-											initial={{ opacity: 0 }}
-											animate={{ opacity: 1 }}
-											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
-											transition={{ type: "spring", stiffness: 400, damping: 30 }}
-										>
-											{/* Pills Grid */}
-											<div className="cc-pills-grid">
-												{/* Wi-Fi Pill */}
-												<div
-													className={`cc-pill-tile ${wifiEnabled ? "active" : ""}`}
-													onClick={(e) => {
-														e.stopPropagation();
-														toggleWifi();
-													}}
-													onContextMenu={handleWifiRightClick}
-													title="Left-click to toggle, Right-click for Settings"
-												>
-													<div className="cc-pill-icon-wrapper">
-														<WifiIcon enabled={wifiEnabled} connected={wifiConnected} />
-													</div>
-													<div className="cc-pill-info">
-														<span className="cc-pill-title">Wi-Fi</span>
-														<span className="cc-pill-status">
-															{wifiStatus === null
-																? "…"
-																: !wifiEnabled
-																	? "Off"
-																	: wifiConnected
-																		? "Connected"
-																		: "Not connected"}
-														</span>
-													</div>
-												</div>
-
-												{/* Dock Mode Pill */}
-												<div
-													className={`cc-pill-tile ${dockMode === "fixed" ? "active" : ""}`}
-													onClick={toggleDockModeSetting}
-													title="Cycle dock mode: Fixed / Smart / Peek"
-												>
-													<div className="cc-pill-icon-wrapper">
-														<DockIcon />
-													</div>
-													<div className="cc-pill-info">
-														<span className="cc-pill-title">Dock Mode</span>
-														<span className="cc-pill-status">
-															{dockMode === "fixed"
-																? "Fixed"
-																: dockMode === "smart"
-																	? "Smart"
-																	: "Peek"}
-														</span>
-													</div>
-												</div>
-
-												{/* Bluetooth Pill */}
-												<div
-													className={`cc-pill-tile ${bluetoothEnabled ? "active" : ""}`}
-													onClick={(e) => {
-														e.stopPropagation();
-														toggleBluetooth();
-													}}
-													onContextMenu={handleBluetoothRightClick}
-													title="Left-click to toggle, Right-click for Settings"
-												>
-													<div className="cc-pill-icon-wrapper">
-														<BluetoothIcon />
-													</div>
-													<div className="cc-pill-info">
-														<span className="cc-pill-title">Bluetooth</span>
-														<span className="cc-pill-status">
-															{bluetoothEnabled ? "On" : "Off"}
-														</span>
-													</div>
-												</div>
-
-												{/* Notch Mode Pill */}
-												<div
-													className={`cc-pill-tile ${notchMode === "fixed" ? "active" : ""}`}
-													onClick={toggleNotchModeSetting}
-													title="Cycle notch mode: Fixed / Smart / Peek"
-												>
-													<div className="cc-pill-icon-wrapper">
-														<NotchIcon />
-													</div>
-													<div className="cc-pill-info">
-														<span className="cc-pill-title">Notch Mode</span>
-														<span className="cc-pill-status">
-															{notchMode === "fixed"
-																? "Fixed"
-																: notchMode === "smart"
-																	? "Smart"
-																	: "Peek"}
-														</span>
-													</div>
-												</div>
-											</div>
-
-											{/* Circular Actions Row */}
-											<div
-												className="cc-circular-actions-row"
-												onWheel={(e) => {
-													e.currentTarget.scrollLeft += e.deltaY;
-												}}
-											>
-												{notchControlEthernet && (
-													<button
-														className={`cc-circular-btn ${ethernetConnected ? "active" : ""}`}
-														onClick={async (e) => {
-															e.stopPropagation();
-															try {
-																const newState = await invoke<boolean>("toggle_ethernet_state");
-																setEthernetOverride(newState);
-															} catch (err) {
-																console.error("Failed to toggle ethernet:", err);
-															}
-														}}
-														onContextMenu={(e) => {
-															e.preventDefault();
-															invoke("open_ethernet_settings");
-														}}
-														title={`Ethernet: ${ethernetConnected ? "Connected" : "Disconnected"} — Click to Toggle, Right-click for Settings`}
-													>
-														<Network size={14} strokeWidth={2.2} />
-													</button>
-												)}
-												{notchControlAirplane && (
-													<button
-														className={`cc-circular-btn ${airplaneModeActive ? "active" : ""}`}
-														onClick={async (e) => {
-															e.stopPropagation();
-															try {
-																const newState = await invoke<boolean>("toggle_airplane_mode");
-																setAirplaneModeActive(newState);
-															} catch (err) {
-																console.error("Failed to toggle airplane mode:", err);
-															}
-														}}
-														onContextMenu={(e) => {
-															e.preventDefault();
-															invoke("open_airplane_mode_settings");
-														}}
-														title={`Airplane Mode: ${airplaneModeActive ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
-													>
-														<Plane size={14} strokeWidth={2.2} />
-													</button>
-												)}
-												{notchControlHotspot && (
-													<button
-														className={`cc-circular-btn ${hotspotActive ? "active" : ""}`}
-														onClick={async (e) => {
-															e.stopPropagation();
-															try {
-																const newState = await invoke<boolean>("toggle_mobile_hotspot");
-																setHotspotActive(newState);
-															} catch (err) {
-																console.error("Failed to toggle hotspot:", err);
-															}
-														}}
-														onContextMenu={(e) => {
-															e.preventDefault();
-															invoke("open_mobile_hotspot_settings");
-														}}
-														title={`Mobile Hotspot: ${hotspotActive ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
-													>
-														<Radio size={14} strokeWidth={2.2} />
-													</button>
-												)}
-												{notchControlDnd && (
-													<button
-														className={`cc-circular-btn ${dndActive ? "active" : ""}`}
-														onClick={async (e) => {
-															e.stopPropagation();
-															try {
-																const newState = await invoke<boolean>("toggle_dnd_state");
-																setDndActive(newState);
-															} catch (err) {
-																console.error("Failed to toggle DND:", err);
-															}
-														}}
-														onContextMenu={(e) => {
-															e.preventDefault();
-															invoke("open_notification_center");
-														}}
-														title={`Focus / DND: ${dndActive ? "On" : "Off"} — Click to Toggle, Right-click for Notification Center`}
-													>
-														<MoonIcon />
-													</button>
-												)}
-												{notchControlSavings && (
-													<button
-														className={`cc-circular-btn ${batterySaverEnabled ? "active" : ""}`}
-														onClick={async (e) => {
-															e.stopPropagation();
-															try {
-																const newState = await invoke<boolean>("toggle_battery_saver");
-																setBatterySaverEnabled(newState);
-															} catch (err) {
-																console.error("Failed to toggle energy saver:", err);
-															}
-														}}
-														onContextMenu={(e) => {
-															e.preventDefault();
-															openBatterySaverSettings();
-														}}
-														title={`Energy Saver: ${batterySaverEnabled ? "On" : "Off"} — Click to Toggle, Right-click for Settings`}
-													>
-														<BatterySaverIcon />
-													</button>
-												)}
-												<button
-													className="cc-circular-btn"
-													onClick={(e) => {
-														e.stopPropagation();
-														openSystemTray(e);
-													}}
-													title="System Tray"
-												>
-													<TrayIcon />
-												</button>
-												<button
-													className="cc-circular-btn"
-													onClick={(e) => {
-														e.stopPropagation();
-														invoke("open_notification_center");
-													}}
-													title="Notification Center"
-												>
-													<BellIcon />
-												</button>
-												<button
-													className="cc-circular-btn"
-													onClick={(e) => {
-														e.stopPropagation();
-														openSettingsWindow();
-													}}
-													title="Bloom Settings"
-												>
-													<SettingsIcon />
-												</button>
-												<button
-													className="cc-circular-btn"
-													onClick={(e) => {
-														e.stopPropagation();
-														invoke("restart_bloom");
-													}}
-													title="Restart Bloom"
-												>
-													<ReloadIcon />
-												</button>
-											</div>
-
-											{/* Classic Sliders Area */}
-											<div className="cc-classic-sliders-area">
-												{/* Volume Slider */}
-												<div className="cc-classic-slider-row">
-													<div className="cc-classic-slider-label">
-														<VolumeLowIcon style={{ opacity: 0.5 }} />
-														<span>Volume</span>
-													</div>
-													<div className="cc-classic-slider-track">
-														<input
-															type="range"
-															min="0"
-															max="1"
-															step="0.01"
-															value={displayVolume}
-															onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-															onPointerDown={(e) => e.stopPropagation()}
-															onClick={(e) => e.stopPropagation()}
-															className="cc-classic-input"
-														/>
-														<div
-															className="cc-classic-fill"
-															style={{ width: `${displayVolume * 100}%` }}
-														/>
-													</div>
-													<span className="cc-classic-percentage">
-														{Math.round(displayVolume * 100)}%
-													</span>
-												</div>
-
-												{/* Brightness Slider */}
-												<div className="cc-classic-slider-row">
-													<div className="cc-classic-slider-label">
-														<BrightnessLowIcon />
-														<span>Brightness</span>
-													</div>
-													<div className="cc-classic-slider-track">
-														<input
-															type="range"
-															min="0"
-															max="100"
-															step="1"
-															value={currentBrightness}
-															onChange={(e) => handleBrightnessChange(parseInt(e.target.value))}
-															onPointerDown={(e) => e.stopPropagation()}
-															onClick={(e) => e.stopPropagation()}
-															className="cc-classic-input"
-														/>
-														<div
-															className="cc-classic-fill"
-															style={{ width: `${currentBrightness}%` }}
-														/>
-													</div>
-													<span className="cc-classic-percentage">{currentBrightness}%</span>
-												</div>
-											</div>
-										</motion.div>
+										<ControlsView
+											showSavings={notchControlSavings}
+												showEthernet={notchControlEthernet}
+											showDnd={notchControlDnd}
+											showAirplane={notchControlAirplane}
+											showHotspot={notchControlHotspot}
+											onOpenSystemTray={openSystemTray}
+											onBatterySaverContextMenu={openBatterySaverSettings}
+											wifiEnabled={wifiEnabled}
+											wifiConnected={wifiConnected}
+											onToggleWifi={() => { void toggleWifi(); }}
+											onWifiContextMenu={handleWifiRightClick}
+											bluetoothEnabled={bluetoothEnabled}
+											onToggleBluetooth={() => { void toggleBluetooth(); }}
+											onBluetoothContextMenu={handleBluetoothRightClick}
+											dockMode={dockMode}
+											onToggleDockMode={toggleDockModeSetting}
+											notchMode={notchMode}
+											onToggleNotchMode={toggleNotchModeSetting}
+											airplaneMode={airplaneModeActive}
+											onToggleAirplane={async () => {
+												try {
+													const s = await invoke<boolean>("toggle_airplane_mode");
+													setAirplaneModeActive(s);
+												} catch (err) {
+													console.error(err);
+												}
+											}}
+											hotspotActive={hotspotActive}
+											onToggleHotspot={async () => {
+												try {
+													const s = await invoke<boolean>("toggle_mobile_hotspot");
+													setHotspotActive(s);
+												} catch (err) {
+													console.error(err);
+												}
+											}}
+											dndActive={dndActive}
+											onToggleDnd={async () => {
+												try {
+													const s = await invoke<boolean>("toggle_dnd_state");
+													setDndActive(s);
+												} catch (err) {
+													console.error(err);
+												}
+											}}
+											batterySaverActive={batterySaverEnabled}
+											onToggleBatterySaver={async () => {
+												try {
+													const s = await invoke<boolean>("toggle_battery_saver");
+													setBatterySaverEnabled(s);
+												} catch (err) {
+													console.error(err);
+												}
+											}}
+											volume={volume}
+											isMuted={isMuted}
+											onVolumeChange={handleVolumeChange}
+											onToggleMute={toggleMute}
+											brightness={currentBrightness}
+											onBrightnessChange={handleBrightnessChange}
+											onOpenSettings={openSettingsWindow}
+											onSubViewChange={setCcSubView}
+										/>
 									)}
 								</AnimatePresence>
 
@@ -3808,7 +3528,7 @@ function App() {
 																: isTimerFinished
 																	? "Time's up"
 																	: timerEndTime
-																		? `${timerState === "paused" ? "Paused · " : ""}ends ${timerEndTime}`
+																		? `${timerState === "paused" ? "Paused Â· " : ""}ends ${timerEndTime}`
 																		: "Click to edit"}
 														</div>
 
@@ -3969,7 +3689,7 @@ function App() {
 																	</div>
 																	<span className="shelf-tile-name">
 																		{item.type === "text"
-																			? `Text · ${item.text?.length ?? 0} chars`
+																			? `Text Â· ${item.text?.length ?? 0} chars`
 																			: item.name}
 																	</span>
 																	<button
@@ -4079,168 +3799,5 @@ function Calendar() {
 	);
 }
 
-function BluetoothIcon() {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11" />
-		</svg>
-	);
-}
-
-function SettingsIcon() {
-	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			style={{ opacity: 0.9 }}
-		>
-			<circle cx="12" cy="12" r="3" />
-			<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-		</svg>
-	);
-}
-
-function BrightnessLowIcon() {
-	return (
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			style={{ opacity: 0.5 }}
-		>
-			<circle cx="12" cy="12" r="5" fill="currentColor" />
-		</svg>
-	);
-}
-
-function MoonIcon() {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-		</svg>
-	);
-}
-
-function DockIcon() {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<rect x="2" y="14" width="20" height="8" rx="2" />
-			<line x1="6" y1="18" x2="6.01" y2="18" strokeWidth="3.5" strokeLinecap="round" />
-			<line x1="10" y1="18" x2="10.01" y2="18" strokeWidth="3.5" strokeLinecap="round" />
-			<line x1="14" y1="18" x2="14.01" y2="18" strokeWidth="3.5" strokeLinecap="round" />
-			<line x1="18" y1="18" x2="18.01" y2="18" strokeWidth="3.5" strokeLinecap="round" />
-		</svg>
-	);
-}
-
-function NotchIcon() {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M4 3h16a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-			<path d="M9 9v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V9" />
-		</svg>
-	);
-}
-
-function BellIcon() {
-	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9z" />
-			<path d="M13.73 21a2 2 0 0 1-3.46 0" />
-		</svg>
-	);
-}
-
-function ReloadIcon() {
-	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-		</svg>
-	);
-}
-
-function BatterySaverIcon() {
-	return (
-		<svg
-			width="18"
-			height="18"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<rect x="2" y="7" width="16" height="10" rx="2" />
-			<path d="M22 11v2" />
-			<path d="M6 12h4l2-3v6l-2-3H6" />
-		</svg>
-	);
-}
-
 export default App;
+
