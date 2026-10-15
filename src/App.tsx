@@ -1339,8 +1339,7 @@ function App() {
 	// expanded. Hovering it cancels the timer; leaving collapses it.
 	const shelfCollapseTimer = useRef<number | null>(null);
 	const shelfRestingModeRef = useRef<BloomMode>("status");
-	shelfRestingModeRef.current =
-		mediaInfo.has_media && isPlaying && settingsMusicCompactNotch ? "music" : "status";
+	shelfRestingModeRef.current = "status";
 
 	// Shared hover-release, called on DOM hover end and when the backend
 	// reports the pointer left the (now click-through) notch window. Clears
@@ -1645,11 +1644,11 @@ function App() {
 	};
 
 	const getCyclableModes = () => {
-		// Requested order: Time with stats (status) â†’ controls (command-center) â†’ calendar â†’ apps â†’ shelf â†’ music â†’ wallpaper â†’ power
-		const musicBeforeStatus = isPlaying && mediaInfo.has_media && settingsMusicModeEnabled;
-		const modes: BloomMode[] = musicBeforeStatus
-			? ["status", "command-center", "calendar", "apps", "shelf", "music", "wallpaper", "power"]
-			: ["status", "command-center", "calendar", "apps", "shelf", "music", "wallpaper", "power"];
+		// When media is active, music comes first, followed by controls, calendar, apps, shelf, wallpaper, power
+		const hasActiveMedia = mediaInfo.has_media && settingsMusicModeEnabled && (isPlaying || bloomMode === "music");
+		const modes: BloomMode[] = hasActiveMedia
+			? ["music", "command-center", "calendar", "apps", "shelf", "wallpaper", "power"]
+			: ["status", "command-center", "calendar", "apps", "shelf", "wallpaper", "power"];
 		return modes.filter((m) => {
 			if (m === "power" && !settingsPowerModeEnabled) return false;
 			if (m === "wallpaper" && !settingsWallpaperModeEnabled) return false;
@@ -2523,20 +2522,15 @@ function App() {
 			const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
 			return Math.min(220 + totalWidgets * 45, 400);
 		}
-		if (isMusicMode && isHovered) return mediaLayout === "compact" ? 300 : 340;
+		if (bloomMode === "music" && isHovered) {
+			const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
+			const widgetsWidth = Math.min(220 + totalWidgets * 45, 400);
+			const mediaWidth = mediaLayout === "compact" ? 340 : 365;
+			return Math.max(mediaWidth, widgetsWidth);
+		}
 		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) && !isHovered) return 260;
 
 		let w = 140;
-		if (isMusicMode) {
-			w = 140;
-			if (settingsVisualizerEnabled && isPlaying) w += 30;
-			if (settingsAlbumArtEnabled) w += 30;
-
-			if (isHovered) {
-				w += 60;
-			}
-		}
-
 		return w;
 	};
 
@@ -2550,7 +2544,7 @@ function App() {
 		}
 		// Sized to the calendar's week-row count plus the timer's fixed content.
 		if (bloomMode === "calendar") return calendarMonthRows >= 6 ? 305 : 273;
-		// Shelf expands on mode alone (no hover needed â€” there is no cursor
+		// Shelf expands on mode alone (no hover needed — there is no cursor
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
 		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 332) : 36;
@@ -2558,13 +2552,13 @@ function App() {
 		if (bloomMode === "power") return isHovered ? 124 : 36;
 		if (bloomMode === "wallpaper") return 320;
 		if (bloomMode === "status") return 36;
-		if (isMusicMode && isHovered) {
+		if (bloomMode === "music" && isHovered) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
-			let h = mediaLayout === "compact" ? (hasProgressBar ? 132 : 116) : 120;
-			if (mediaLayout === "compact") {
-				if (compactVolumeExpanded) h += 36;
+			let h = mediaLayout === "compact" ? (hasProgressBar ? 128 : 112) : 118;
+			if (mediaLayout === "compact" && compactVolumeExpanded) {
+				h += 36;
 			}
-			return h;
+			return 36 + h + 10;
 		}
 		return 36;
 	};
@@ -2747,13 +2741,229 @@ function App() {
 									display: "flex",
 									flexDirection: "column",
 									alignItems: "center",
-									position: "relative",
-									borderRadius: "inherit"
+									position: "relative"
 								}}
 							>
-								{/* Faster Waiting Transition Area */}
-								<AnimatePresence mode="wait">
-									{isHovered && isMusicMode && !isCalendarMode ? (
+								<motion.div
+									key="standard-view-group"
+									initial={{ opacity: 0, y: -5 }}
+									animate={{ opacity: 1, y: 0 }}
+									exit={{ opacity: 0, y: 5, transition: { duration: 0.1 } }}
+									transition={{ duration: 0.2 }}
+									style={{ width: "100%" }}
+								>
+									<div className="main-row">
+												<AnimatePresence mode="wait">
+													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) &&
+													!isHovered ? (
+														audioToast ? (
+															<motion.div
+																key="audio-pulse-view"
+																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+																className="power-pulse-content"
+															>
+																{audioToast.type === "headphone" ? (
+																	<Headphones size={13} strokeWidth={2.4} style={{ color: "#38bdf8" }} />
+																) : (
+																	<Mic size={13} strokeWidth={2.4} style={{ color: "#a78bfa" }} />
+																)}
+																<span className="label" style={{ color: "#f1f5f9" }}>
+																	{audioToast.message}
+																</span>
+															</motion.div>
+														) : showUpdatePulse ? (
+															<motion.div
+																key="update-pulse-view"
+																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+																className="power-pulse-content"
+															>
+																<GreenDownArrowIcon />
+																<span className="label" style={{ color: "#32D74B" }}>
+																	Update Available
+																</span>
+															</motion.div>
+														) : (
+															<motion.div
+																key="pulse-view"
+																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+																className="power-pulse-content"
+															>
+																{updateAvailable && <GreenDownArrowIcon />}
+																<BatteryIcon
+																	charging={isCharging}
+																	level={batteryLevel}
+																	threshold={lowBatteryThreshold}
+																/>
+																<span
+																	className="label"
+																	style={{ color: showLowBatteryPulse ? "#FF453A" : "inherit" }}
+																>
+																	{showLowBatteryPulse
+																		? "Low Battery"
+																		: isCharging
+																			? "Charging"
+																			: "On Battery"}{" "}
+																	â€¢ {batteryLevel}%
+																</span>
+															</motion.div>
+														)
+													) : (
+														<motion.div
+															key="standard-view"
+															className="main-row-inner"
+															initial={{ opacity: 0 }}
+															animate={{ opacity: 1 }}
+															exit={{ opacity: 0 }}
+														>
+															{/* Left: passive indicators or status widgets */}
+															<div className="side-content left">
+																{notchAudioIndicator && audioDevices.headphone_connected && !isHovered && (
+																	<motion.div
+																		className="passive-feature"
+																		style={{ padding: "0 2px" }}
+																		title={`Headphones: ${audioDevices.headphone_name || "Connected"}`}
+																		initial={{ opacity: 0, scale: 0.8 }}
+																		animate={{ opacity: 1, scale: 1 }}
+																	>
+																		<Headphones size={12} strokeWidth={2.2} style={{ color: "#38bdf8" }} />
+																	</motion.div>
+																)}
+																{notchAudioIndicator && audioDevices.mic_connected && !isHovered && (
+																	<motion.div
+																		className="passive-feature"
+																		style={{ padding: "0 2px" }}
+																		title={`Microphone: ${audioDevices.mic_name || "Connected"}`}
+																		initial={{ opacity: 0, scale: 0.8 }}
+																		animate={{ opacity: 1, scale: 1 }}
+																	>
+																		<Mic size={12} strokeWidth={2.2} style={{ color: "#a78bfa" }} />
+																	</motion.div>
+																)}
+																{isHovered && statusWidgets.left.length > 0 ? (
+																	<motion.div
+																		key="left-widgets"
+																		className="passive-features-group"
+																		initial={{ opacity: 0 }}
+																		animate={{ opacity: 1 }}
+																		exit={{ opacity: 0 }}
+																		transition={{ duration: 0.2 }}
+																	>
+																		{statusWidgets.left.map(renderStatusWidget)}
+																	</motion.div>
+																) : null}
+															</div>
+
+															{/* Center - Time (always visible) */}
+															<div className="time-center">
+																<AnimatePresence>
+																	{showPanelArrows && (
+																		<motion.button
+																			key="panel-prev"
+																			type="button"
+																			className="panel-arrow prev"
+																			aria-label="Previous panel"
+																			initial={{ opacity: 0, x: 4 }}
+																			animate={{ opacity: 1, x: 0 }}
+																			exit={{ opacity: 0, x: 4 }}
+																			transition={{ duration: 0.15 }}
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				cycleBloomMode(-1);
+																			}}
+																		>
+																			<ChevronLeft size={12} strokeWidth={2.5} />
+																		</motion.button>
+																	)}
+																</AnimatePresence>
+																<div className="time-flip-container" onClick={toggleCalendarMode}>
+																	<AnimatePresence initial={false}>
+																		{timerSeconds > 0 || isTimerFinished ? (
+																			<motion.span
+																				key="timer"
+																				className={`time compact-timer ${isTimerFinished ? "timer-finished" : ""}`}
+																				initial={{ rotateX: -90, opacity: 0 }}
+																				animate={{ rotateX: 0, opacity: 1 }}
+																				exit={{ rotateX: 90, opacity: 0 }}
+																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
+																			>
+																				{isTimerFinished && (
+																					<BellRing
+																						size={13}
+																						strokeWidth={2.5}
+																						className="timer-bell"
+																					/>
+																				)}
+																				{formatTimerTime(timerSeconds)}
+																			</motion.span>
+																		) : (
+																			<motion.span
+																				key="clock"
+																				className="time"
+																				initial={{ rotateX: -90, opacity: 0 }}
+																				animate={{ rotateX: 0, opacity: 1 }}
+																				exit={{ rotateX: 90, opacity: 0 }}
+																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
+																			>
+																				{time}
+																			</motion.span>
+																		)}
+																	</AnimatePresence>
+																</div>
+																<AnimatePresence>
+																	{showPanelArrows && (
+																		<motion.button
+																			key="panel-next"
+																			type="button"
+																			className="panel-arrow next"
+																			aria-label="Next panel"
+																			initial={{ opacity: 0, x: -4 }}
+																			animate={{ opacity: 1, x: 0 }}
+																			exit={{ opacity: 0, x: -4 }}
+																			transition={{ duration: 0.15 }}
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				cycleBloomMode(1);
+																			}}
+																		>
+																			<ChevronRight size={12} strokeWidth={2.5} />
+																		</motion.button>
+																	)}
+																</AnimatePresence>
+																{updateAvailable && showUpdateIndicator && (
+																	<div className="update-dot" />
+																)}
+															</div>
+
+															{/* Right: battery / stats status widgets */}
+															<div className="side-content right">
+																{isHovered && statusWidgets.right.length > 0 ? (
+																	<motion.div
+																		key="right-widgets"
+																		className="passive-features-group"
+																		initial={{ opacity: 0 }}
+																		animate={{ opacity: 1 }}
+																		exit={{ opacity: 0 }}
+																		transition={{ duration: 0.2 }}
+																	>
+																		{statusWidgets.right.map(renderStatusWidget)}
+																	</motion.div>
+																) : null}
+															</div>
+														</motion.div>
+													)}
+												</AnimatePresence>
+											</div>
+										</motion.div>
+
+								{/* Media Player Panel */}
+								<AnimatePresence>
+									{bloomMode === "music" && isHovered && (
 										<motion.div
 											key="expanded-music"
 											className="expanded-music-container"
@@ -2761,6 +2971,7 @@ function App() {
 											animate={{ opacity: 1, scale: 1 }}
 											exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }}
 											transition={{ type: "spring", stiffness: 500, damping: 30 }}
+											onClick={(e) => e.stopPropagation()}
 										>
 											{mediaLayout === "compact" ? (
 												<CompactMediaPlayer
@@ -2816,8 +3027,16 @@ function App() {
 															}}
 															style={{ cursor: "pointer" }}
 														>
+															{albumArtUrl && settingsCompactGlowEnabled && (
+																<img
+																	src={albumArtUrl}
+																	alt=""
+																	className="album-art-glow-bg"
+																	draggable={false}
+																/>
+															)}
 															<AnimatePresence mode="wait" initial={false}>
-																{albumArtUrl ? (
+																{albumArtUrl && settingsAlbumArtEnabled ? (
 																	<motion.img
 																		key={`art-${albumArtKey}`}
 																		src={albumArtUrl}
@@ -2852,7 +3071,9 @@ function App() {
 															</div>
 															<div className="header-visualizer-wrap">
 																<div className="header-visualizer">
-																	<Visualizer isPlaying={isPlaying} bars={5} height={18} />
+																	{settingsVisualizerEnabled && (
+																		<Visualizer isPlaying={isPlaying} bars={5} height={18} />
+																	)}
 																</div>
 																<motion.button
 																	className="classic-audio-output-btn"
@@ -3012,310 +3233,6 @@ function App() {
 													</div>
 												</div>
 											)}
-										</motion.div>
-									) : (
-										<motion.div
-											key="standard-view-group"
-											initial={{ opacity: 0, y: -5 }}
-											animate={{ opacity: 1, y: 0 }}
-											exit={{ opacity: 0, y: 5, transition: { duration: 0.1 } }}
-											transition={{ duration: 0.2 }}
-											style={{ width: "100%" }}
-										>
-											<div className="main-row">
-												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) &&
-													!isHovered ? (
-														audioToast ? (
-															<motion.div
-																key="audio-pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																{audioToast.type === "headphone" ? (
-																	<Headphones size={13} strokeWidth={2.4} style={{ color: "#38bdf8" }} />
-																) : (
-																	<Mic size={13} strokeWidth={2.4} style={{ color: "#a78bfa" }} />
-																)}
-																<span className="label" style={{ color: "#f1f5f9" }}>
-																	{audioToast.message}
-																</span>
-															</motion.div>
-														) : showUpdatePulse ? (
-															<motion.div
-																key="update-pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																<GreenDownArrowIcon />
-																<span className="label" style={{ color: "#32D74B" }}>
-																	Update Available
-																</span>
-															</motion.div>
-														) : (
-															<motion.div
-																key="pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																{updateAvailable && <GreenDownArrowIcon />}
-																<BatteryIcon
-																	charging={isCharging}
-																	level={batteryLevel}
-																	threshold={lowBatteryThreshold}
-																/>
-																<span
-																	className="label"
-																	style={{ color: showLowBatteryPulse ? "#FF453A" : "inherit" }}
-																>
-																	{showLowBatteryPulse
-																		? "Low Battery"
-																		: isCharging
-																			? "Charging"
-																			: "On Battery"}{" "}
-																	â€¢ {batteryLevel}%
-																</span>
-															</motion.div>
-														)
-													) : (
-														<motion.div
-															key="standard-view"
-															className="main-row-inner"
-															initial={{ opacity: 0 }}
-															animate={{ opacity: 1 }}
-															exit={{ opacity: 0 }}
-														>
-															{/* Left: visualizer (music) or weather (command-center, calendar) */}
-															<div className="side-content left">
-																{notchAudioIndicator && audioDevices.headphone_connected && !isHovered && !isMusicMode && (
-																	<motion.div
-																		className="passive-feature"
-																		style={{ padding: "0 2px" }}
-																		title={`Headphones: ${audioDevices.headphone_name || "Connected"}`}
-																		initial={{ opacity: 0, scale: 0.8 }}
-																		animate={{ opacity: 1, scale: 1 }}
-																	>
-																		<Headphones size={12} strokeWidth={2.2} style={{ color: "#38bdf8" }} />
-																	</motion.div>
-																)}
-																{notchAudioIndicator && audioDevices.mic_connected && !isHovered && !isMusicMode && (
-																	<motion.div
-																		className="passive-feature"
-																		style={{ padding: "0 2px" }}
-																		title={`Microphone: ${audioDevices.mic_name || "Connected"}`}
-																		initial={{ opacity: 0, scale: 0.8 }}
-																		animate={{ opacity: 1, scale: 1 }}
-																	>
-																		<Mic size={12} strokeWidth={2.2} style={{ color: "#a78bfa" }} />
-																	</motion.div>
-																)}
-																{isMusicMode && settingsVisualizerEnabled ? (
-																	<AnimatePresence>
-																		{settingsVisualizerEnabled && (
-																			<motion.div
-																				key="visualizer"
-																				initial={{ scale: 0.8, opacity: 0 }}
-																				animate={{ scale: 1, opacity: 1 }}
-																				exit={{ scale: 0.8, opacity: 0 }}
-																			>
-																				<Visualizer isPlaying={isPlaying} />
-																			</motion.div>
-																		)}
-																	</AnimatePresence>
-																) : !isMusicMode && isHovered && statusWidgets.left.length > 0 ? (
-																	<motion.div
-																		key="left-widgets"
-																		className="passive-features-group"
-																		initial={{ opacity: 0 }}
-																		animate={{ opacity: 1 }}
-																		exit={{ opacity: 0 }}
-																		transition={{ duration: 0.2 }}
-																	>
-																		{statusWidgets.left.map(renderStatusWidget)}
-																	</motion.div>
-																) : null}
-															</div>
-
-															{/* Center - Time (always visible) */}
-															<div className="time-center">
-																<AnimatePresence>
-																	{showPanelArrows && (
-																		<motion.button
-																			key="panel-prev"
-																			type="button"
-																			className="panel-arrow prev"
-																			aria-label="Previous panel"
-																			initial={{ opacity: 0, x: 4 }}
-																			animate={{ opacity: 1, x: 0 }}
-																			exit={{ opacity: 0, x: 4 }}
-																			transition={{ duration: 0.15 }}
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				cycleBloomMode(-1);
-																			}}
-																		>
-																			<ChevronLeft size={12} strokeWidth={2.5} />
-																		</motion.button>
-																	)}
-																</AnimatePresence>
-																<div className="time-flip-container" onClick={toggleCalendarMode}>
-																	<AnimatePresence initial={false}>
-																		{timerSeconds > 0 || isTimerFinished ? (
-																			<motion.span
-																				key="timer"
-																				className={`time compact-timer ${isTimerFinished ? "timer-finished" : ""}`}
-																				initial={{ rotateX: -90, opacity: 0 }}
-																				animate={{ rotateX: 0, opacity: 1 }}
-																				exit={{ rotateX: 90, opacity: 0 }}
-																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
-																			>
-																				{isTimerFinished && (
-																					<BellRing
-																						size={13}
-																						strokeWidth={2.5}
-																						className="timer-bell"
-																					/>
-																				)}
-																				{formatTimerTime(timerSeconds)}
-																			</motion.span>
-																		) : (
-																			<motion.span
-																				key="clock"
-																				className="time"
-																				initial={{ rotateX: -90, opacity: 0 }}
-																				animate={{ rotateX: 0, opacity: 1 }}
-																				exit={{ rotateX: 90, opacity: 0 }}
-																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
-																			>
-																				{time}
-																			</motion.span>
-																		)}
-																	</AnimatePresence>
-																</div>
-																<AnimatePresence>
-																	{showPanelArrows && (
-																		<motion.button
-																			key="panel-next"
-																			type="button"
-																			className="panel-arrow next"
-																			aria-label="Next panel"
-																			initial={{ opacity: 0, x: -4 }}
-																			animate={{ opacity: 1, x: 0 }}
-																			exit={{ opacity: 0, x: -4 }}
-																			transition={{ duration: 0.15 }}
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				cycleBloomMode(1);
-																			}}
-																		>
-																			<ChevronRight size={12} strokeWidth={2.5} />
-																		</motion.button>
-																	)}
-																</AnimatePresence>
-																{updateAvailable && showUpdateIndicator && (
-																	<div className="update-dot" />
-																)}
-															</div>
-
-															{/* Right: album art (music) or battery (command-center, calendar) */}
-															<div className="side-content right">
-																{isMusicMode && settingsAlbumArtEnabled ? (
-																	<AnimatePresence mode="wait">
-																		<motion.div
-																			key="album-art"
-																			className="album-art-glow-wrapper"
-																			initial={{ opacity: 0, scale: 0.8 }}
-																			animate={{ opacity: 1, scale: 1 }}
-																			exit={{ opacity: 0, y: -20, scale: 0.8, filter: "blur(8px)" }}
-																			transition={{ duration: 0.12 }}
-																		>
-																			{albumArtUrl && settingsCompactGlowEnabled && (
-																				<img
-																					src={albumArtUrl}
-																					alt=""
-																					className="album-art-glow-bg"
-																					draggable={false}
-																				/>
-																			)}
-																			<button
-																				className={`album-art${isHovered ? " album-art-large" : ""}${!isPlaying ? " paused" : ""}`}
-																				onClick={(e) => {
-																					e.stopPropagation();
-																					togglePlayPause();
-																				}}
-																				onDoubleClick={(e) => {
-																					e.stopPropagation();
-																					skipNext();
-																				}}
-																				onContextMenu={(e) => {
-																					e.preventDefault();
-																					e.stopPropagation();
-																					skipPrevious();
-																				}}
-																			>
-																				<div className="album-art-inner">
-																					<AnimatePresence mode="wait" initial={false}>
-																						{albumArtUrl ? (
-																							<motion.img
-																								key={`compact-art-${albumArtKey}`}
-																								src={albumArtUrl}
-																								alt="Art"
-																								draggable={false}
-																								initial={{ rotateY: 90, opacity: 0 }}
-																								animate={{ rotateY: 0, opacity: 1 }}
-																								exit={{ rotateY: -90, opacity: 0 }}
-																								transition={{ duration: 0.25, ease: "easeInOut" }}
-																								style={{
-																									width: "100%",
-																									height: "100%",
-																									objectFit: "cover"
-																								}}
-																							/>
-																						) : (
-																							<motion.div
-																								key="compact-placeholder"
-																								className="album-art-placeholder"
-																								initial={{ rotateY: 90, opacity: 0 }}
-																								animate={{ rotateY: 0, opacity: 1 }}
-																								exit={{ rotateY: -90, opacity: 0 }}
-																								transition={{ duration: 0.25, ease: "easeInOut" }}
-																							>
-																								<MusicNoteIcon className="music-placeholder-svg-small" />
-																							</motion.div>
-																						)}
-																					</AnimatePresence>
-																					<div className="album-art-overlay">
-																						<div className="control-icon-small">
-																							{isPlaying ? <PauseIcon /> : <PlayIcon />}
-																						</div>
-																					</div>
-																				</div>
-																			</button>
-																		</motion.div>
-																	</AnimatePresence>
-																) : !isMusicMode && isHovered && statusWidgets.right.length > 0 ? (
-																	<motion.div
-																		key="right-widgets"
-																		className="passive-features-group"
-																		initial={{ opacity: 0 }}
-																		animate={{ opacity: 1 }}
-																		exit={{ opacity: 0 }}
-																		transition={{ duration: 0.2 }}
-																	>
-																		{statusWidgets.right.map(renderStatusWidget)}
-																	</motion.div>
-																) : null}
-															</div>
-														</motion.div>
-													)}
-												</AnimatePresence>
-											</div>
 										</motion.div>
 									)}
 								</AnimatePresence>

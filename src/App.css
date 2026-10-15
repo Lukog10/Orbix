@@ -1103,12 +1103,19 @@ img {
 
 /* Compact Premium Expanded Music */
 .expanded-music-container {
+	position: absolute;
+	top: 36px;
+	left: 0;
 	width: 100%;
-	height: 100%;
-	padding: 0px;
+	height: calc(100% - 36px);
+	padding: 4px 12px 8px 12px;
 	box-sizing: border-box;
 	display: flex;
 	align-items: stretch;
+	border-radius: 0 0 18px 18px;
+	overflow: hidden;
+	user-select: none;
+	z-index: 2;
 }
 
 .compact-premium-layout {
@@ -1116,7 +1123,7 @@ img {
 	align-items: center;
 	width: 100%;
 	height: 100%;
-	gap: 22px;
+	gap: 16px;
 }
 
 .album-art-section {
