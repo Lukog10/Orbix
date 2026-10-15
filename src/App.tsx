@@ -2561,11 +2561,11 @@ function App() {
 		if (bloomMode === "status") return 36;
 		if (bloomMode === "music" && isHovered) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
-			let h = mediaLayout === "compact" ? (hasProgressBar ? 128 : 112) : 118;
+			let h = mediaLayout === "compact" ? (hasProgressBar ? 150 : 126) : 128;
 			if (mediaLayout === "compact" && compactVolumeExpanded) {
-				h += 36;
+				h += 38;
 			}
-			return 36 + h + 10;
+			return 36 + h;
 		}
 		return 36;
 	};
