@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wifi, Bluetooth, Volume2, VolumeX, Sun, SlidersHorizontal } from "lucide-react";
@@ -59,7 +59,7 @@ interface ControlsViewProps {
 	onSubViewChange?: (subView: SubViewMode) => void;
 }
 
-export const ControlsView: React.FC<ControlsViewProps> = ({
+export const ControlsView: React.FC<ControlsViewProps> = React.memo(({
 	wifiEnabled,
 	wifiConnected,
 	onToggleWifi,
@@ -100,12 +100,26 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 	const [internetStatus, setInternetStatus] = useState<InternetStatus | null>(null);
 	const [microphoneState, setMicrophoneState] = useState<MicrophoneState | null>(null);
 
+	// Local slider states for instant 0ms latency dragging
+	const [localVol, setLocalVol] = useState(volume);
+	const [localBri, setLocalBri] = useState(brightness);
+	const isDraggingVol = useRef(false);
+	const isDraggingBri = useRef(false);
+
+	useEffect(() => {
+		if (!isDraggingVol.current) setLocalVol(volume);
+	}, [volume]);
+
+	useEffect(() => {
+		if (!isDraggingBri.current) setLocalBri(brightness);
+	}, [brightness]);
+
 	const updateSubView = (mode: SubViewMode) => {
 		setSubView(mode);
 		onSubViewChange?.(mode);
 	};
 
-	// Fetch live Internet & Microphone state
+	// Fetch live Internet & Microphone state with gentle interval
 	const fetchTelemetry = useCallback(async () => {
 		try {
 			const net = await invoke<InternetStatus>("get_internet_status");
@@ -124,7 +138,7 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 
 	useEffect(() => {
 		fetchTelemetry();
-		const interval = setInterval(fetchTelemetry, 3500);
+		const interval = setInterval(fetchTelemetry, 6000);
 		return () => clearInterval(interval);
 	}, [fetchTelemetry]);
 
@@ -161,7 +175,7 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 		invoke("open_night_light_settings").catch(console.error);
 	};
 
-	const displayVolume = isMuted ? 0 : volume;
+	const displayVolume = isMuted ? 0 : localVol;
 
 	return (
 		<div className="cc-root-container" onClick={(e) => e.stopPropagation()}>
@@ -275,8 +289,18 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 										max="1"
 										step="0.01"
 										value={displayVolume}
-										onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-										onPointerDown={(e) => e.stopPropagation()}
+										onChange={(e) => {
+											const val = parseFloat(e.target.value);
+											setLocalVol(val);
+											onVolumeChange(val);
+										}}
+										onPointerDown={(e) => {
+											e.stopPropagation();
+											isDraggingVol.current = true;
+										}}
+										onPointerUp={() => {
+											isDraggingVol.current = false;
+										}}
 										onClick={(e) => e.stopPropagation()}
 										className="cc-slider-input"
 									/>
@@ -309,15 +333,25 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 										min="0"
 										max="100"
 										step="1"
-										value={brightness}
-										onChange={(e) => onBrightnessChange(parseInt(e.target.value, 10))}
-										onPointerDown={(e) => e.stopPropagation()}
+										value={localBri}
+										onChange={(e) => {
+											const val = parseInt(e.target.value, 10);
+											setLocalBri(val);
+											onBrightnessChange(val);
+										}}
+										onPointerDown={(e) => {
+											e.stopPropagation();
+											isDraggingBri.current = true;
+										}}
+										onPointerUp={() => {
+											isDraggingBri.current = false;
+										}}
 										onClick={(e) => e.stopPropagation()}
 										className="cc-slider-input"
 									/>
-									<div className="cc-slider-fill" style={{ width: `${brightness}%` }} />
+									<div className="cc-slider-fill" style={{ width: `${localBri}%` }} />
 								</div>
-								<span className="cc-slider-pct">{Math.round(brightness)}%</span>
+								<span className="cc-slider-pct">{Math.round(localBri)}%</span>
 							</div>
 						</div>
 
@@ -369,7 +403,7 @@ export const ControlsView: React.FC<ControlsViewProps> = ({
 			</AnimatePresence>
 		</div>
 	);
-};
+});
 
 
 

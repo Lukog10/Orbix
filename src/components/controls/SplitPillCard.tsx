@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { ChevronRight } from "lucide-react";
 
 interface SplitPillCardProps {
@@ -13,7 +13,7 @@ interface SplitPillCardProps {
 	subViewTitle?: string;
 }
 
-export const SplitPillCard: React.FC<SplitPillCardProps> = ({
+export const SplitPillCard: React.FC<SplitPillCardProps> = React.memo(({
 	icon,
 	title,
 	status,
@@ -60,4 +60,4 @@ export const SplitPillCard: React.FC<SplitPillCardProps> = ({
 			</button>
 		</div>
 	);
-};
+});

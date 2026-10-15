@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Mic, MicOff, RotateCw, Settings, Wifi } from "lucide-react";
 import { EthernetIcon, GlobeOffIcon } from "./Icons";
 import { InternetStatus, MicrophoneState } from "./types";
@@ -14,7 +14,7 @@ interface ControlsFooterProps {
 	onOpenNetworkSettings: () => void;
 }
 
-export const ControlsFooter: React.FC<ControlsFooterProps> = ({
+export const ControlsFooter: React.FC<ControlsFooterProps> = React.memo(({
 	showEthernet = true,
 	internetStatus,
 	microphoneState,
@@ -112,5 +112,5 @@ export const ControlsFooter: React.FC<ControlsFooterProps> = ({
 			</div>
 		</div>
 	);
-};
+});
 

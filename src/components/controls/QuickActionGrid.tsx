@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
 	Moon,
 	Plane,
@@ -39,7 +39,7 @@ interface QuickActionGridProps {
 	onOpenSystemTray?: (e: React.MouseEvent) => void;
 }
 
-export const QuickActionGrid: React.FC<QuickActionGridProps> = ({
+export const QuickActionGrid: React.FC<QuickActionGridProps> = React.memo(({
 	airplaneMode,
 	onToggleAirplane,
 	onAirplaneContextMenu,
@@ -208,4 +208,4 @@ export const QuickActionGrid: React.FC<QuickActionGridProps> = ({
 			)}
 		</div>
 	);
-};
+});

@@ -1,4 +1,4 @@
-﻿/* =======================================================
+/* =======================================================
    Zvuk Shell - Controls View & Sub-Views Styling
    ======================================================= */
 
@@ -11,6 +11,7 @@
 	position: relative;
 	box-sizing: border-box;
 	color: #f1f5f9;
+	padding: 4px 10px 10px 10px;
 }
 
 .cc-view-page {
@@ -47,8 +48,8 @@
 }
 
 .cc-split-card.active {
-	background: rgba(56, 189, 248, 0.16);
-	border-color: rgba(56, 189, 248, 0.35);
+	background: rgba(255, 255, 255, 0.16);
+	border-color: rgba(255, 255, 255, 0.32);
 }
 
 .cc-split-main-btn {
@@ -78,8 +79,8 @@
 }
 
 .cc-split-card.active .cc-split-icon-wrapper {
-	background: #38bdf8;
-	color: #0f172a;
+	background: #ffffff;
+	color: #000000;
 }
 
 .cc-split-text {
@@ -107,7 +108,7 @@
 }
 
 .cc-split-card.active .cc-split-status {
-	color: #38bdf8;
+	color: #ffffff;
 }
 
 .cc-split-divider {
@@ -142,7 +143,7 @@
 	background: rgba(255, 255, 255, 0.06);
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	border-radius: 9px;
-	height: 44px;
+	height: 38px;
 	cursor: pointer;
 	color: inherit;
 	transition: all 0.15s ease;
@@ -154,8 +155,8 @@
 }
 
 .cc-simple-tile.active {
-	background: rgba(56, 189, 248, 0.12);
-	border-color: rgba(56, 189, 248, 0.28);
+	background: rgba(255, 255, 255, 0.16);
+	border-color: rgba(255, 255, 255, 0.32);
 }
 
 .cc-simple-tile-text {
@@ -176,15 +177,15 @@
 }
 
 .cc-simple-tile.active .cc-tile-status {
-	color: #38bdf8;
+	color: #ffffff;
 }
 
 /* ---------------- Quick Action Grid ---------------- */
 .cc-actions-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	gap: 6px;
-	margin-bottom: 8px;
+	gap: 5px;
+	margin-bottom: 6px;
 }
 
 .cc-action-tile {
@@ -193,7 +194,7 @@
 	align-items: center;
 	justify-content: center;
 	gap: 3px;
-	height: 42px;
+	height: 36px;
 	background: rgba(255, 255, 255, 0.05);
 	border: 1px solid rgba(255, 255, 255, 0.07);
 	border-radius: 8px;
@@ -210,9 +211,14 @@
 }
 
 .cc-action-tile.active {
-	background: rgba(56, 189, 248, 0.18);
-	border-color: rgba(56, 189, 248, 0.4);
-	color: #38bdf8;
+	background: rgba(255, 255, 255, 0.22);
+	border-color: rgba(255, 255, 255, 0.45);
+	color: #ffffff;
+}
+
+.cc-action-tile.active svg {
+	color: #ffffff;
+	filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
 }
 
 .cc-action-name {
@@ -229,9 +235,9 @@
 .cc-sliders-container {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	margin-bottom: 8px;
-	padding: 6px 8px;
+	gap: 5px;
+	margin-bottom: 6px;
+	padding: 5px 8px;
 	background: rgba(255, 255, 255, 0.035);
 	border: 1px solid rgba(255, 255, 255, 0.06);
 	border-radius: 9px;
@@ -241,7 +247,7 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	height: 22px;
+	height: 20px;
 }
 
 .cc-slider-icon-btn {
@@ -275,10 +281,15 @@
 	left: 0;
 	top: 0;
 	height: 100%;
-	background: #38bdf8;
+	background: var(--bloom-text, #ffffff);
 	border-radius: 999px;
 	pointer-events: none;
-	transition: width 0.05s ease;
+	transition: none;
+}
+
+.cc-slider-row:hover .cc-slider-fill {
+	background: #ffffff;
+	box-shadow: 0 0 5px rgba(255, 255, 255, 0.35);
 }
 
 .cc-slider-input {
@@ -326,8 +337,8 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	padding: 6px 8px;
-	background: rgba(0, 0, 0, 0.25);
+	padding: 5px 8px;
+	background: rgba(0, 0, 0, 0.35);
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	border-radius: 8px;
 	margin-top: auto;
@@ -538,9 +549,9 @@
 }
 
 .cc-subview-toggle-pill.active {
-	background: #38bdf8;
+	background: #ffffff;
 	color: #0f172a;
-	border-color: #38bdf8;
+	border-color: #ffffff;
 }
 
 .cc-subview-body {
@@ -565,7 +576,7 @@
 .cc-subview-primary-btn {
 	padding: 5px 12px;
 	border-radius: 6px;
-	background: #38bdf8;
+	background: #ffffff;
 	color: #0f172a;
 	font-weight: 600;
 	font-size: 11px;
@@ -684,9 +695,9 @@
 }
 
 .cc-network-connect-btn:hover {
-	background: #38bdf8;
-	color: #0f172a;
-	border-color: #38bdf8;
+	background: rgba(255, 255, 255, 0.2);
+	color: #ffffff;
+	border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Password expansion */
@@ -710,8 +721,8 @@
 }
 
 .cc-network-pwd-input:focus {
-	border-color: #38bdf8;
-	box-shadow: 0 0 0 1px #38bdf8;
+	border-color: rgba(255, 255, 255, 0.4);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
 .cc-network-open-note {
@@ -743,7 +754,7 @@
 .cc-network-join-btn {
 	padding: 3px 10px;
 	border-radius: 5px;
-	background: #38bdf8;
+	background: #ffffff;
 	border: none;
 	color: #0f172a;
 	font-size: 10px;
@@ -785,7 +796,7 @@
 }
 
 .cc-subview-bt-icon-box.active {
-	background: #38bdf8;
+	background: #ffffff;
 	color: #0f172a;
 }
 
