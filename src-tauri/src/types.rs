@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "WmiMonitorBrightness")]
@@ -106,4 +106,28 @@ pub struct AudioDeviceStatus {
     pub headphone_name: String,
     pub mic_connected: bool,
     pub mic_name: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct InternetStatus {
+    pub connection_type: String,
+    pub label: String,
+    pub is_connected: bool,
+    pub ethernet_connected: bool,
+    pub wifi_connected: bool,
+    pub wifi_enabled: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct WifiNetworkEntry {
+    pub ssid: String,
+    pub signal_percent: u8,
+    pub is_secure: bool,
+    pub is_connected: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct MicrophoneState {
+    pub is_muted: bool,
+    pub device_name: String,
 }

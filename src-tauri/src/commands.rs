@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+﻿use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, Manager, Window};
 use windows::core::Interface;
 use windows::Win32::Foundation::{HWND, LPARAM};
@@ -10,8 +10,8 @@ use crate::services::{
 };
 use crate::state::*;
 use crate::types::{
-    AppInfo, AudioSessionInfo, BrightnessChangeEvent, IntRect, SearchFileItem, VolumeChangeEvent,
-    WifiStatus,
+    AppInfo, AudioSessionInfo, BrightnessChangeEvent, IntRect, InternetStatus, MicrophoneState,
+    SearchFileItem, VolumeChangeEvent, WifiNetworkEntry, WifiStatus,
 };
 use crate::utils::*;
 use std::collections::HashMap;
@@ -200,7 +200,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
     }
 
     if let Some(dock_win) = app.get_webview_window("dock") {
-        // 1. Always show first — idempotent, required before any positioning
+        // 1. Always show first â€” idempotent, required before any positioning
         let _ = dock_win.show();
         if let Ok(hwnd) = dock_win.hwnd() {
             re_assert_topmost(hwnd);
@@ -220,7 +220,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
                         return;
                     }
                     // Wait for monitor and window dimensions to be available.
-                    // Never use a hardcoded fallback — wrong values produce off-screen placement.
+                    // Never use a hardcoded fallback â€” wrong values produce off-screen placement.
                     // Extract HWND as isize before any await (raw pointer is not Send).
                     let hwnd_val = dock_clone.hwnd().map(|h| h.0 as isize).unwrap_or(0);
                     let ph = dock_clone
@@ -239,7 +239,7 @@ pub async fn init_dock(app: AppHandle, mode: String) {
                     if hwnd_val != 0 {
                         if let Some((m_size, m_pos)) = monitor_info {
                             if ph <= 10 {
-                                // outer_size() not ready yet — retry next tick
+                                // outer_size() not ready yet â€” retry next tick
                                 if attempt < 19 {
                                     tokio::time::sleep(tokio::time::Duration::from_millis(200))
                                         .await;
@@ -357,7 +357,7 @@ pub async fn change_dock_mode(app: AppHandle, mode: String) {
                 });
                 DOCK_APPBAR_REGISTERED.store(false, Ordering::Relaxed);
 
-                // Retry primary_monitor() — can fail on autostart before shell initializes
+                // Retry primary_monitor() â€” can fail on autostart before shell initializes
                 let dock_clone = dock_win.clone();
                 tauri::async_runtime::spawn(async move {
                     for attempt in 0..10 {
@@ -3007,7 +3007,7 @@ pub async fn capture_window_thumbnail(
     .map_err(|e| e.to_string())
 }
 
-// ── Radio helpers — Windows Runtime Windows.Devices.Radios ───────────────────
+// â”€â”€ Radio helpers â€” Windows Runtime Windows.Devices.Radios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replaces PowerShell -ExecutionPolicy Bypass scripts for WiFi/Bluetooth state.
 
 fn get_radio_state_sync(kind: windows::Devices::Radios::RadioKind) -> Result<bool, String> {
@@ -3115,34 +3115,31 @@ pub fn get_brightness() -> u32 {
     crate::state::CURRENT_BRIGHTNESS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-// ── Wi-Fi status — WLAN API for association state ────────────────────────────
+// â”€â”€ Wi-Fi status â€” WLAN API for association state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // The radio state only says Wi-Fi is on, not whether it is connected, so the
 // notch quick settings needs a second bit to distinguish "on" from "connected".
 
-fn is_wlan_connected_sync() -> bool {
+pub fn get_wlan_connection_info_sync() -> (bool, String) {
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::NetworkManagement::WiFi::{
         wlan_intf_opcode_current_connection, WlanCloseHandle, WlanEnumInterfaces, WlanFreeMemory,
-        WlanOpenHandle, WlanQueryInterface, WLAN_INTERFACE_INFO_LIST,
+        WlanOpenHandle, WlanQueryInterface, WLAN_CONNECTION_ATTRIBUTES, WLAN_INTERFACE_INFO_LIST,
     };
 
     unsafe {
         let mut negotiated_version = 0u32;
         let mut client_handle = HANDLE::default();
         if WlanOpenHandle(2, None, &mut negotiated_version, &mut client_handle) != 0 {
-            return false;
+            return (false, String::new());
         }
 
         let mut interface_list: *mut WLAN_INTERFACE_INFO_LIST = std::ptr::null_mut();
         let mut connected = false;
+        let mut ssid = String::new();
         if WlanEnumInterfaces(client_handle, None, &mut interface_list) != 0 {
             WlanCloseHandle(client_handle, None);
-            return false;
+            return (false, String::new());
         }
-        // A success code guarantees an allocated list; as_ref() turns the
-        // pointer into a checked reference. WLAN_INTERFACE_INFO_LIST ends in a
-        // C flexible array (InterfaceInfo[1] with dwNumberOfItems entries), so
-        // the count is sanity-bounded before building the slice.
         if let Some(list) = interface_list.as_ref() {
             let count = list.dwNumberOfItems as usize;
             if count > 0 && count <= 64 {
@@ -3150,8 +3147,6 @@ fn is_wlan_connected_sync() -> bool {
                 for interface in interfaces {
                     let mut data_size = 0u32;
                     let mut data: *mut std::ffi::c_void = std::ptr::null_mut();
-                    // Returns ERROR_INVALID_STATE when the interface is not
-                    // associated, so a successful query means an active connection.
                     let result = WlanQueryInterface(
                         client_handle,
                         &interface.InterfaceGuid,
@@ -3161,11 +3156,20 @@ fn is_wlan_connected_sync() -> bool {
                         &mut data,
                         None,
                     );
+                    if result == 0 && !data.is_null() {
+                        connected = true;
+                        let attr = &*(data as *const WLAN_CONNECTION_ATTRIBUTES);
+                        let ssid_len = attr.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
+                        if ssid_len > 0 {
+                            let len = ssid_len.min(32);
+                            let bytes = &attr.wlanAssociationAttributes.dot11Ssid.ucSSID[..len];
+                            ssid = String::from_utf8_lossy(bytes).trim().to_string();
+                        }
+                    }
                     if !data.is_null() {
                         WlanFreeMemory(data);
                     }
-                    if result == 0 {
-                        connected = true;
+                    if connected {
                         break;
                     }
                 }
@@ -3174,8 +3178,12 @@ fn is_wlan_connected_sync() -> bool {
         }
 
         WlanCloseHandle(client_handle, None);
-        connected
+        (connected, ssid)
     }
+}
+
+fn is_wlan_connected_sync() -> bool {
+    get_wlan_connection_info_sync().0
 }
 
 fn is_ethernet_connected_sync() -> bool {
@@ -3250,7 +3258,7 @@ pub async fn set_bluetooth_state(enabled: bool) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-// Settings openers — use ShellExecuteA directly instead of spawning powershell
+// Settings openers â€” use ShellExecuteA directly instead of spawning powershell
 
 #[tauri::command]
 pub fn open_bluetooth_settings() {
@@ -3364,7 +3372,7 @@ pub fn set_brightness(app: AppHandle, brightness: u32) {
 
 #[tauri::command]
 pub async fn get_battery_saver_state() -> Result<bool, String> {
-    // Uses Windows Runtime PowerManager — no PowerShell required.
+    // Uses Windows Runtime PowerManager â€” no PowerShell required.
     tauri::async_runtime::spawn_blocking(|| {
         unsafe {
             let _ = windows::Win32::System::Com::CoInitializeEx(
@@ -3904,7 +3912,7 @@ pub fn reset_settings(app: AppHandle) -> Result<(), String> {
     }
 
     // Keep non-Bloom keys (the file is user-editable) and the first-run/version
-    // sentinels (lifecycle markers, not preferences — keeping them avoids
+    // sentinels (lifecycle markers, not preferences â€” keeping them avoids
     // replaying the splash after a reset). Everything else falls back to
     // defaults in both the backend and the frontends.
     let keep = ["bloom-first-run", "bloom-app-version"];
@@ -4040,7 +4048,7 @@ pub fn setup_settings_watcher(app: AppHandle) {
                             *cache = new_settings.clone();
                             (changed, removed)
                         };
-                        // Lock dropped — safe to emit without blocking save_setting
+                        // Lock dropped â€” safe to emit without blocking save_setting
                         for (key, value) in &changed {
                             let _ = app.emit(
                                 "settings-external-changed",
@@ -4484,4 +4492,238 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
     })
     .await
     .unwrap_or_default()
+}
+
+// ==========================================
+// Control Center Modernization Commands
+// ==========================================
+
+#[tauri::command]
+pub async fn get_internet_status() -> Result<InternetStatus, String> {
+    tauri::async_runtime::spawn_blocking(|| -> Result<InternetStatus, String> {
+        let ethernet_connected = is_ethernet_connected_sync();
+        let wifi_enabled = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi).unwrap_or(false);
+        let (wifi_connected, ssid) = if wifi_enabled {
+            get_wlan_connection_info_sync()
+        } else {
+            (false, String::new())
+        };
+
+        let (connection_type, label, is_connected) = if ethernet_connected {
+            ("ethernet".to_string(), "Ethernet".to_string(), true)
+        } else if wifi_connected {
+            let display_ssid = if ssid.is_empty() { "Wi-Fi".to_string() } else { ssid };
+            ("wifi".to_string(), display_ssid, true)
+        } else {
+            ("offline".to_string(), "No internet".to_string(), false)
+        };
+
+        Ok(InternetStatus {
+            connection_type,
+            label,
+            is_connected,
+            ethernet_connected,
+            wifi_connected,
+            wifi_enabled,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_available_wifi_networks() -> Result<Vec<WifiNetworkEntry>, String> {
+    tauri::async_runtime::spawn_blocking(|| -> Result<Vec<WifiNetworkEntry>, String> {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+
+        let (_, current_ssid) = get_wlan_connection_info_sync();
+
+        let output = Command::new("netsh")
+            .args(["wlan", "show", "networks", "mode=bssid"])
+            .creation_flags(0x08000000)
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut networks: Vec<WifiNetworkEntry> = Vec::new();
+        let mut current_entry: Option<WifiNetworkEntry> = None;
+
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("SSID ") {
+                if let Some(entry) = current_entry.take() {
+                    if !entry.ssid.is_empty() && !networks.iter().any(|n| n.ssid == entry.ssid) {
+                        networks.push(entry);
+                    }
+                }
+                if let Some(idx) = trimmed.find(':') {
+                    let ssid = trimmed[idx + 1..].trim().to_string();
+                    if !ssid.is_empty() {
+                        let is_conn = !current_ssid.is_empty() && ssid.eq_ignore_ascii_case(&current_ssid);
+                        current_entry = Some(WifiNetworkEntry {
+                            ssid,
+                            signal_percent: 50,
+                            is_secure: true,
+                            is_connected: is_conn,
+                        });
+                    }
+                }
+            } else if let Some(ref mut entry) = current_entry {
+                if trimmed.starts_with("Authentication") {
+                    if let Some(idx) = trimmed.find(':') {
+                        let auth = trimmed[idx + 1..].trim();
+                        entry.is_secure = !auth.eq_ignore_ascii_case("Open");
+                    }
+                } else if trimmed.starts_with("Signal") {
+                    if let Some(idx) = trimmed.find(':') {
+                        let sig_str = trimmed[idx + 1..].trim().replace('%', "");
+                        if let Ok(pct) = sig_str.parse::<u8>() {
+                            if pct > entry.signal_percent || entry.signal_percent == 50 {
+                                entry.signal_percent = pct;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(entry) = current_entry {
+            if !entry.ssid.is_empty() && !networks.iter().any(|n| n.ssid == entry.ssid) {
+                networks.push(entry);
+            }
+        }
+
+        networks.sort_by(|a, b| {
+            b.is_connected
+                .cmp(&a.is_connected)
+                .then_with(|| b.signal_percent.cmp(&a.signal_percent))
+        });
+
+        Ok(networks)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn connect_wifi_network(ssid: String, _password: Option<String>) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+
+        let status = Command::new("netsh")
+            .args(["wlan", "connect", &format!("name=\"{}\"", ssid)])
+            .creation_flags(0x08000000)
+            .status()
+            .map_err(|e| e.to_string())?;
+
+        Ok(status.success())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_microphone_state() -> Result<MicrophoneState, String> {
+    tauri::async_runtime::spawn_blocking(|| unsafe {
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use windows::Win32::Media::Audio::{eCapture, eConsole, IMMDeviceEnumerator};
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED,
+        };
+
+        let com_initialized = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
+        let result = (|| -> Result<MicrophoneState, String> {
+            let enumerator: IMMDeviceEnumerator = CoCreateInstance(
+                &windows::Win32::Media::Audio::MMDeviceEnumerator,
+                None,
+                CLSCTX_ALL,
+            )
+            .map_err(|e| e.to_string())?;
+
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eCapture, eConsole)
+                .map_err(|e| e.to_string())?;
+
+            let endpoint: IAudioEndpointVolume = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|e| e.to_string())?;
+
+            let is_muted = endpoint.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+
+            Ok(MicrophoneState {
+                is_muted,
+                device_name: "Default Microphone".to_string(),
+            })
+        })();
+
+        if com_initialized {
+            CoUninitialize();
+        }
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn toggle_microphone_mute() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(|| unsafe {
+        use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+        use windows::Win32::Media::Audio::{eCapture, eConsole, IMMDeviceEnumerator};
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED,
+        };
+
+        let com_initialized = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
+        let result = (|| -> Result<bool, String> {
+            let enumerator: IMMDeviceEnumerator = CoCreateInstance(
+                &windows::Win32::Media::Audio::MMDeviceEnumerator,
+                None,
+                CLSCTX_ALL,
+            )
+            .map_err(|e| e.to_string())?;
+
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eCapture, eConsole)
+                .map_err(|e| e.to_string())?;
+
+            let endpoint: IAudioEndpointVolume = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|e| e.to_string())?;
+
+            let current_mute = endpoint.GetMute().map(|m| m.as_bool()).unwrap_or(false);
+            let new_mute = !current_mute;
+            let _ = endpoint.SetMute(new_mute, std::ptr::null());
+            Ok(new_mute)
+        })();
+
+        if com_initialized {
+            CoUninitialize();
+        }
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn trigger_screen_snip() {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    let _ = Command::new("cmd")
+        .args(["/c", "start", "ms-screenclip:"])
+        .creation_flags(0x08000000)
+        .spawn();
+}
+
+#[tauri::command]
+pub fn lock_workstation() {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    let _ = Command::new("rundll32.exe")
+        .args(["user32.dll,LockWorkStation"])
+        .creation_flags(0x08000000)
+        .spawn();
 }

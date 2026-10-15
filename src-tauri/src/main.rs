@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
 mod dock_extras;
@@ -57,7 +57,7 @@ fn main() {
         let err = GetLastError();
 
         if err.0 == 183 {
-            // Another instance is already running — signal it to open settings
+            // Another instance is already running â€” signal it to open settings
             if let Ok(h_event) = OpenEventW(
                 SYNCHRONIZATION_ACCESS_RIGHTS(0x00100002),
                 false,
@@ -164,6 +164,13 @@ fn main() {
             settings_file_readable,
             capture_window_thumbnail,
             get_wifi_status,
+            get_internet_status,
+            get_available_wifi_networks,
+            connect_wifi_network,
+            get_microphone_state,
+            toggle_microphone_mute,
+            trigger_screen_snip,
+            lock_workstation,
             set_wifi_state,
             get_bluetooth_state,
             set_bluetooth_state,
@@ -317,7 +324,7 @@ fn main() {
 
             sync_overlays(app.handle());
 
-            // Initialize the overlay window — on Windows, set_position doesn't
+            // Initialize the overlay window â€” on Windows, set_position doesn't
             // take effect on a window that has never been shown. Show it once
             // to register it with the compositor, then hide immediately.
             if let Some(ov_win) = app.get_webview_window("overlay") {
@@ -460,3 +467,4 @@ fn main() {
         }
     });
 }
+
