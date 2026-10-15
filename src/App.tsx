@@ -1604,15 +1604,13 @@ function App() {
 
 	const lastScrollTime = useRef(0);
 	const handleWheel = (e: React.WheelEvent) => {
-		if (bloomMode === "apps" || bloomMode === "wallpaper") {
-			return;
-		}
 		const target = e.target as HTMLElement;
 
 		// Ignore wheel inside any expanded panel's content area (apps, wallpapers, calendar, controls, etc.)
 		if (
 			target.closest(".apps-panel-content") ||
 			target.closest(".wallpaper-panel-content") ||
+			target.closest(".cc-root-container") ||
 			target.closest(".command-center-content-minimal") ||
 			target.closest(".calendar-timer-content") ||
 			target.closest(".calendar-grid") ||
@@ -2555,7 +2553,7 @@ function App() {
 		// Shelf expands on mode alone (no hover needed â€” there is no cursor
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
-		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 374) : 36;
+		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 332) : 36;
 		if (bloomMode === "apps") return 400;
 		if (bloomMode === "power") return isHovered ? 124 : 36;
 		if (bloomMode === "wallpaper") return 320;
