@@ -1,4 +1,4 @@
-﻿import { motion, AnimatePresence, useAnimation } from "framer-motion";
+import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -806,90 +806,23 @@ function App() {
 			return;
 		}
 
-		const proceedWithStartup = () => {
-			const checkVisibility = async () => {
-				try {
-					const win = getCurrentWebviewWindow();
-					const visible = await win.isVisible();
-					if (visible) {
-						setStartupAnimating(true);
-						setIsReady(true);
-						// The window is shown here; WebView2 may only create its
-						// render child now, so refresh the drop targets.
-						invoke("setup_shelf_drop").catch(() => {});
-						setTimeout(() => {
-							setIsImpacted(true);
-							setIsExpanded(true);
-						}, 240);
-						setTimeout(() => setStartupAnimating(false), 1500);
-						return true;
-					}
-				} catch (e) {}
-				return false;
-			};
-
-			const interval = setInterval(async () => {
-				if (await checkVisibility()) clearInterval(interval);
-			}, 100);
-
-			checkVisibility();
-			return interval;
+				const proceedWithStartup = () => {
+			try {
+				const win = getCurrentWebviewWindow();
+				win.show().catch(() => {});
+			} catch (e) {}
+			setStartupAnimating(true);
+			setIsReady(true);
+			invoke("setup_shelf_drop").catch(() => {});
+			setTimeout(() => {
+				setIsImpacted(true);
+				setIsExpanded(true);
+			}, 240);
+			setTimeout(() => setStartupAnimating(false), 1500);
 		};
 
-		// Mirror Overlay.tsx's splash decision so we only wait when a splash will actually fire.
-		// Overlay always emits splash-done, but on a normal relaunch it emits it near-instantly
-		// (after one async getVersion() call) â€” before this listener would be registered.
-		// By making the same decision here we avoid a race and avoid any unnecessary delay.
-		const firstRun = localStorage.getItem("bloom-first-run") === null;
-		const storedVersion = localStorage.getItem("bloom-app-version");
-
-		const waitForSplash = () => {
-			// Splash is definitely coming â€” register listener now (2800ms animation gives us plenty of time)
-			let started = false;
-			let interval: any;
-			const unlistenSplash = listen("splash-done", () => {
-				if (started) return;
-				started = true;
-				interval = proceedWithStartup();
-				unlistenSplash.then((fn) => fn());
-			});
-			const safetyTimer = setTimeout(() => {
-				if (started) return;
-				started = true;
-				interval = proceedWithStartup();
-				unlistenSplash.then((fn) => fn());
-			}, 6000);
-			return () => {
-				clearTimeout(safetyTimer);
-				if (interval) clearInterval(interval);
-				unlistenSplash.then((fn) => fn());
-			};
-		};
-
-		if (firstRun || storedVersion === null) {
-			// Splash is definitely showing â€” wait for it
-			return waitForSplash();
-		}
-
-		// Has a version key â€” need async check to know if version changed
-		let interval: any;
-		getVersion()
-			.then((currentVersion) => {
-				if (storedVersion !== currentVersion) {
-					// Version changed â€” splash is coming, wait for it
-					// (splash takes 2800ms so there's plenty of time to register the listener)
-					waitForSplash();
-				} else {
-					// Same version â€” no splash, start immediately
-					interval = proceedWithStartup();
-				}
-			})
-			.catch(() => {
-				interval = proceedWithStartup();
-			});
-		return () => {
-			if (interval) clearInterval(interval);
-		};
+		localStorage.setItem("bloom-first-run", "done");
+		proceedWithStartup();
 	}, [windowLabel]);
 
 	// Settings state
@@ -3800,4 +3733,6 @@ function Calendar() {
 }
 
 export default App;
+
+
 

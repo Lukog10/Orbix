@@ -246,6 +246,9 @@ fn main() {
             let window = app.get_webview_window("main").unwrap();
             let dock_win = app.get_webview_window("dock").unwrap();
 
+            let _ = window.show();
+            let _ = dock_win.show();
+
             // Sync window rects initially and on event
             let win_clone = window.clone();
             let update_main_rect = move || {
@@ -467,4 +470,5 @@ fn main() {
         }
     });
 }
+
 
