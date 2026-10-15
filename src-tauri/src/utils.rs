@@ -735,8 +735,24 @@ pub fn replace_settings_cache(new_settings: std::collections::HashMap<String, se
     }
 }
 
+#[allow(dead_code)]
 pub fn get_bloom_scale(_app: &tauri::AppHandle) -> f64 {
     get_setting_str(_app, "bloom-scale")
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(1.0)
+}
+
+pub fn get_notch_scale(_app: &tauri::AppHandle) -> f64 {
+    get_setting_str(_app, "bloom-notch-scale")
+        .or_else(|| get_setting_str(_app, "bloom-scale"))
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(1.0)
+}
+
+#[allow(dead_code)]
+pub fn get_dock_scale(_app: &tauri::AppHandle) -> f64 {
+    get_setting_str(_app, "bloom-dock-scale")
+        .or_else(|| get_setting_str(_app, "bloom-scale"))
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(1.0)
 }

@@ -8,6 +8,10 @@ interface AppearanceTabProps {
 	handleThemeColorChange: (color: string) => void;
 	themeOpacity: number;
 	handleOpacityChange: (val: number) => void;
+	notchOpacity: number;
+	handleNotchOpacityChange: (val: number) => void;
+	dockOpacity: number;
+	handleDockOpacityChange: (val: number) => void;
 	themeSaturation: number;
 	handleSaturationChange: (val: number) => void;
 	themeBrightness: number;
@@ -16,6 +20,10 @@ interface AppearanceTabProps {
 	toggleCorners: () => void;
 	scale: number;
 	handleScaleChange: (val: number) => void;
+	notchScale: number;
+	handleNotchScaleChange: (val: number) => void;
+	dockScale: number;
+	handleDockScaleChange: (val: number) => void;
 }
 
 export function AppearanceTab({
@@ -23,16 +31,20 @@ export function AppearanceTab({
 	handleThemeModeChange,
 	themeColor,
 	handleThemeColorChange,
-	themeOpacity,
-	handleOpacityChange,
+	notchOpacity,
+	handleNotchOpacityChange,
+	dockOpacity,
+	handleDockOpacityChange,
 	themeSaturation,
 	handleSaturationChange,
 	themeBrightness,
 	handleBrightnessChange,
 	cornersEnabled,
 	toggleCorners,
-	scale,
-	handleScaleChange
+	notchScale,
+	handleNotchScaleChange,
+	dockScale,
+	handleDockScaleChange
 }: AppearanceTabProps) {
 	const showCustomColor = themeMode === "custom";
 	const showAdvancedSliders = themeMode === "custom" || themeMode === "adaptive";
@@ -74,8 +86,24 @@ export function AppearanceTab({
 
 				<SettingRow
 					icon={Contrast}
-					label="Background Opacity"
-					desc={`Adjust theme transparency (${Math.round(themeOpacity * 100)}%)`}
+					label="Notch Background Opacity"
+					desc={`Adjust notch transparency (${Math.round(notchOpacity * 100)}%)`}
+				>
+					<input
+						type="range"
+						min="0.1"
+						max="1.0"
+						step="0.05"
+						value={notchOpacity}
+						onChange={(e) => handleNotchOpacityChange(parseFloat(e.target.value))}
+						className="settings-slider"
+					/>
+				</SettingRow>
+
+				<SettingRow
+					icon={Contrast}
+					label="Dock Background Opacity"
+					desc={`Adjust dock transparency (${Math.round(dockOpacity * 100)}%)`}
 					divider={showAdvancedSliders}
 				>
 					<input
@@ -83,8 +111,8 @@ export function AppearanceTab({
 						min="0.1"
 						max="1.0"
 						step="0.05"
-						value={themeOpacity}
-						onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
+						value={dockOpacity}
+						onChange={(e) => handleDockOpacityChange(parseFloat(e.target.value))}
 						className="settings-slider"
 					/>
 				</SettingRow>
@@ -138,25 +166,51 @@ export function AppearanceTab({
 
 				<SettingRow
 					icon={Maximize2}
-					label="UI & Font Scale"
-					desc={`Adjust desktop size (${Math.round(scale * 100)}%)`}
+					label="Notch UI & Font Scale"
+					desc={`Adjust notch size (${Math.round(notchScale * 100)}%)`}
+				>
+					<div className="scale-button-container">
+						<button
+							onClick={() => handleNotchScaleChange(Math.max(0.8, parseFloat((notchScale - 0.1).toFixed(1))))}
+							disabled={notchScale <= 0.8}
+							className="scale-adjust-btn"
+							title="Decrease Notch Scale"
+						>
+							—
+						</button>
+						<span className="scale-display-value">{Math.round(notchScale * 100)}%</span>
+						<button
+							onClick={() => handleNotchScaleChange(Math.min(1.3, parseFloat((notchScale + 0.1).toFixed(1))))}
+							disabled={notchScale >= 1.3}
+							className="scale-adjust-btn"
+							title="Increase Notch Scale"
+						>
+							+
+						</button>
+					</div>
+				</SettingRow>
+
+				<SettingRow
+					icon={Maximize2}
+					label="Dock UI & Font Scale"
+					desc={`Adjust dock size (${Math.round(dockScale * 100)}%)`}
 					divider={false}
 				>
 					<div className="scale-button-container">
 						<button
-							onClick={() => handleScaleChange(Math.max(0.8, parseFloat((scale - 0.1).toFixed(1))))}
-							disabled={scale <= 0.8}
+							onClick={() => handleDockScaleChange(Math.max(0.8, parseFloat((dockScale - 0.1).toFixed(1))))}
+							disabled={dockScale <= 0.8}
 							className="scale-adjust-btn"
-							title="Decrease Scale"
+							title="Decrease Dock Scale"
 						>
 							—
 						</button>
-						<span className="scale-display-value">{Math.round(scale * 100)}%</span>
+						<span className="scale-display-value">{Math.round(dockScale * 100)}%</span>
 						<button
-							onClick={() => handleScaleChange(Math.min(1.3, parseFloat((scale + 0.1).toFixed(1))))}
-							disabled={scale >= 1.3}
+							onClick={() => handleDockScaleChange(Math.min(1.3, parseFloat((dockScale + 0.1).toFixed(1))))}
+							disabled={dockScale >= 1.3}
 							className="scale-adjust-btn"
-							title="Increase Scale"
+							title="Increase Dock Scale"
 						>
 							+
 						</button>

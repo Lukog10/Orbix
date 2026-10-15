@@ -419,7 +419,7 @@ const TitleMarquee = ({ title }: { title: string }) => {
 
 function App() {
 	useEffect(() => {
-		return initTheme();
+		return initTheme("notch");
 	}, []);
 
 	const [time, setTime] = useState("");
@@ -427,9 +427,11 @@ function App() {
 	// Set once the open notch is clicked; shows the panel arrows until hover ends.
 	const [notchClicked, setNotchClicked] = useState(false);
 	const [isReady, setIsReady] = useState(false);
-	const [scale, setScale] = useState(() =>
-		parseFloat(localStorage.getItem("bloom-scale") || "1.0")
-	);
+	const [scale, setScale] = useState(() => {
+		const notchScale = localStorage.getItem("bloom-notch-scale");
+		if (notchScale !== null) return parseFloat(notchScale);
+		return parseFloat(localStorage.getItem("bloom-scale") || "1.0");
+	});
 	const [timeFormat24h, setTimeFormat24h] = useState(
 		() => localStorage.getItem("bloom-time-format-24h") === "true"
 	);
@@ -1002,7 +1004,7 @@ function App() {
 					}
 				}
 
-				const scaleVal = getVal("bloom-scale");
+				const scaleVal = getVal("bloom-notch-scale") ?? getVal("bloom-scale");
 				if (scaleVal !== null) setScale(parseFloat(scaleVal));
 
 				const widgetsVal = getVal("bloom-status-widgets");
@@ -1070,7 +1072,12 @@ function App() {
 			"bloom-media-compact-glow-enabled": setSettingsCompactGlowEnabled,
 			"bloom-media-layout": setMediaLayout,
 			"bloom-corners-enabled": setSettingsCornersEnabled,
-			"bloom-scale": setScale,
+			"bloom-notch-scale": setScale,
+			"bloom-scale": (value: any) => {
+				if (localStorage.getItem("bloom-notch-scale") === null) {
+					setScale(typeof value === "number" ? value : parseFloat(value));
+				}
+			},
 			"bloom-low-battery-threshold": setLowBatteryThreshold,
 			"bloom-dock-enabled": setDockEnabled,
 			"bloom-dock-mode": setDockMode,

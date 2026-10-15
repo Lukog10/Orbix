@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { reloadIfMirrorWasStale } from "./hooks/settingsMirror";
 
 // Convert a hex color string to rgba with a specified alpha
@@ -242,11 +243,37 @@ export async function applyTheme(
 	}
 }
 
-export function initTheme() {
+export type WindowTarget = "notch" | "dock" | "settings" | "overlay";
+
+export function resolveWindowTarget(explicitTarget?: WindowTarget): WindowTarget {
+	if (explicitTarget) return explicitTarget;
+	try {
+		const label = getCurrentWebviewWindow().label;
+		if (label === "main") return "notch";
+		if (label === "dock") return "dock";
+		if (label === "settings") return "settings";
+		if (label === "overlay") return "overlay";
+	} catch {}
+	return "settings";
+}
+
+export function getOpacityForTarget(target: WindowTarget): number {
+	if (target === "notch") {
+		const val = localStorage.getItem("bloom-notch-opacity");
+		if (val !== null) return parseFloat(val);
+	} else if (target === "dock") {
+		const val = localStorage.getItem("bloom-dock-opacity");
+		if (val !== null) return parseFloat(val);
+	}
+	const globalVal = localStorage.getItem("bloom-theme-opacity");
+	return globalVal !== null ? parseFloat(globalVal) : 0.8;
+}
+
+export function initTheme(target?: WindowTarget) {
+	const resolvedTarget = resolveWindowTarget(target);
 	const syncMode = localStorage.getItem("bloom-theme-mode") || "dark";
 	const syncColor = localStorage.getItem("bloom-theme-color") || "#007aff";
-	const syncOpacityVal = localStorage.getItem("bloom-theme-opacity");
-	const syncOpacity = syncOpacityVal !== null ? parseFloat(syncOpacityVal) : 0.8;
+	const syncOpacity = getOpacityForTarget(resolvedTarget);
 	const syncSaturationVal = localStorage.getItem("bloom-theme-saturation");
 	const syncSaturation = syncSaturationVal !== null ? parseFloat(syncSaturationVal) : 0.5;
 	const syncBrightnessVal = localStorage.getItem("bloom-theme-brightness");
@@ -264,9 +291,26 @@ export function initTheme() {
 			const color = settings["bloom-theme-color"]
 				? String(settings["bloom-theme-color"])
 				: syncColor;
-			const opacityVal = settings["bloom-theme-opacity"]
-				? parseFloat(String(settings["bloom-theme-opacity"]))
-				: syncOpacity;
+
+			let opacityVal = syncOpacity;
+			if (resolvedTarget === "notch") {
+				if (settings["bloom-notch-opacity"] !== undefined) {
+					opacityVal = parseFloat(String(settings["bloom-notch-opacity"]));
+				} else if (settings["bloom-theme-opacity"] !== undefined) {
+					opacityVal = parseFloat(String(settings["bloom-theme-opacity"]));
+				}
+			} else if (resolvedTarget === "dock") {
+				if (settings["bloom-dock-opacity"] !== undefined) {
+					opacityVal = parseFloat(String(settings["bloom-dock-opacity"]));
+				} else if (settings["bloom-theme-opacity"] !== undefined) {
+					opacityVal = parseFloat(String(settings["bloom-theme-opacity"]));
+				}
+			} else {
+				if (settings["bloom-theme-opacity"] !== undefined) {
+					opacityVal = parseFloat(String(settings["bloom-theme-opacity"]));
+				}
+			}
+
 			const saturationVal = settings["bloom-theme-saturation"]
 				? parseFloat(String(settings["bloom-theme-saturation"]))
 				: syncSaturation;
@@ -283,7 +327,13 @@ export function initTheme() {
 			) {
 				localStorage.setItem("bloom-theme-mode", mode);
 				localStorage.setItem("bloom-theme-color", color);
-				localStorage.setItem("bloom-theme-opacity", String(opacityVal));
+				if (resolvedTarget === "notch") {
+					localStorage.setItem("bloom-notch-opacity", String(opacityVal));
+				} else if (resolvedTarget === "dock") {
+					localStorage.setItem("bloom-dock-opacity", String(opacityVal));
+				} else {
+					localStorage.setItem("bloom-theme-opacity", String(opacityVal));
+				}
 				localStorage.setItem("bloom-theme-saturation", String(saturationVal));
 				localStorage.setItem("bloom-theme-brightness", String(brightnessVal));
 				applyTheme(mode, color, opacityVal, saturationVal, brightnessVal);
@@ -295,7 +345,7 @@ export function initTheme() {
 	const applyThemeFromStorage = () => {
 		const mode = localStorage.getItem("bloom-theme-mode") || "dark";
 		const color = localStorage.getItem("bloom-theme-color") || "#007aff";
-		const opacity = parseFloat(localStorage.getItem("bloom-theme-opacity") || "0.80");
+		const opacity = getOpacityForTarget(resolvedTarget);
 		const saturation = parseFloat(localStorage.getItem("bloom-theme-saturation") || "0.50");
 		const brightness = parseFloat(localStorage.getItem("bloom-theme-brightness") || "0.15");
 		applyTheme(mode, color, opacity, saturation, brightness);
@@ -305,6 +355,8 @@ export function initTheme() {
 		"bloom-theme-mode",
 		"bloom-theme-color",
 		"bloom-theme-opacity",
+		"bloom-notch-opacity",
+		"bloom-dock-opacity",
 		"bloom-theme-saturation",
 		"bloom-theme-brightness"
 	];
@@ -322,7 +374,7 @@ export function initTheme() {
 	const accentPromise = listen<string>("system-accent-changed", (event) => {
 		const currentMode = localStorage.getItem("bloom-theme-mode") || "dark";
 		if (currentMode === "adaptive") {
-			const opacity = parseFloat(localStorage.getItem("bloom-theme-opacity") || "0.80");
+			const opacity = getOpacityForTarget(resolvedTarget);
 			const saturation = parseFloat(localStorage.getItem("bloom-theme-saturation") || "0.50");
 			const brightness = parseFloat(localStorage.getItem("bloom-theme-brightness") || "0.15");
 			applyTheme("adaptive", event.payload, opacity, saturation, brightness);

@@ -3303,7 +3303,7 @@ pub fn reposition_main_window(window: &tauri::WebviewWindow) {
             Err(_) => return,
         };
         let scale = monitor.scale_factor();
-        let bloom_scale = crate::utils::get_bloom_scale(window.app_handle());
+        let bloom_scale = crate::utils::get_notch_scale(window.app_handle());
         let ph = ((520.0 * bloom_scale) * scale) as i32;
         let width = m_size.width as i32;
 

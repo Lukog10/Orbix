@@ -123,7 +123,7 @@ function WindowDots({ count, background }: { count: number; background?: boolean
 
 const Dock = memo(function Dock() {
 	useEffect(() => {
-		return initTheme();
+		return initTheme("dock");
 	}, []);
 
 	const [pinnedApps, setPinnedApps] = useState<AppInfo[]>([]);
@@ -197,9 +197,11 @@ const Dock = memo(function Dock() {
 	const [popupBottom, setPopupBottom] = useState(56);
 	const pinnedItemsRef = useRef<AppInfo[]>([]);
 	const handleAppClickRef = useRef<(app: AppInfo) => void>(() => {});
-	const [scale, setScale] = useState(() =>
-		parseFloat(localStorage.getItem("bloom-scale") || "1.0")
-	);
+	const [scale, setScale] = useState(() => {
+		const dockScale = localStorage.getItem("bloom-dock-scale");
+		if (dockScale !== null) return parseFloat(dockScale);
+		return parseFloat(localStorage.getItem("bloom-scale") || "1.0");
+	});
 	const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
 
 	useEffect(() => {
@@ -372,7 +374,7 @@ const Dock = memo(function Dock() {
 			const extrasPosition = getVal("bloom-dock-extras-position", "off");
 			if (extrasPosition) setDockExtrasPosition(extrasPosition);
 
-			const scaleVal = getVal("bloom-scale");
+			const scaleVal = getVal("bloom-dock-scale") ?? getVal("bloom-scale");
 			if (scaleVal !== null) setScale(parseFloat(scaleVal));
 
 			const pinned = await invoke<AppInfo[]>("load_pinned_apps");
@@ -422,7 +424,12 @@ const Dock = memo(function Dock() {
 		"bloom-dock-separator-enabled": setDockSeparatorEnabled,
 		"bloom-dock-adaptive": setDockAdaptive,
 		"bloom-start-icon": setStartIcon,
-		"bloom-scale": setScale,
+		"bloom-dock-scale": setScale,
+		"bloom-scale": (value: any) => {
+			if (localStorage.getItem("bloom-dock-scale") === null) {
+				setScale(typeof value === "number" ? value : parseFloat(value));
+			}
+		},
 		"bloom-dock-extras-position": setDockExtrasPosition,
 		"bloom-dock-extras-drives": () => setDockExtrasRevision((r) => r + 1),
 		"bloom-dock-extras-recycle-bin": () => setDockExtrasRevision((r) => r + 1),

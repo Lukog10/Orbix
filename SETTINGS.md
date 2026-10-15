@@ -107,7 +107,9 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 | ------------------------ | ------------------------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bloom-theme-mode`       | `"dark"` / `"light"` / `"custom"` / `"adaptive"` | `"dark"`    | Theme mode. **dark** = dark translucent. **light** = light translucent. **custom** = user-picked color. **adaptive** = follows Windows system accent color. |
 | `bloom-theme-color`      | hex string                                       | `"#007aff"` | Custom theme color (used in `custom` and `adaptive` modes).                                                                                                 |
-| `bloom-theme-opacity`    | float string                                     | `"0.80"`    | Background opacity (0.1 to 1.0).                                                                                                                            |
+| `bloom-theme-opacity`    | float string                                     | `"0.80"`    | Global background opacity fallback (0.1 to 1.0).                                                                                                            |
+| `bloom-notch-opacity`    | float string                                     | `"0.80"`    | Notch background opacity (0.1 to 1.0). Falls back to `bloom-theme-opacity`.                                                                                 |
+| `bloom-dock-opacity`     | float string                                     | `"0.80"`    | Dock background opacity (0.1 to 1.0). Falls back to `bloom-theme-opacity`.                                                                                  |
 | `bloom-theme-saturation` | float string                                     | `"0.50"`    | Color saturation for custom/adaptive themes (0.0 to 1.0).                                                                                                   |
 | `bloom-theme-brightness` | float string                                     | `"0.15"`    | Background brightness for custom/adaptive themes (0.0 to 1.0).                                                                                              |
 | `bloom-corners-enabled`  | `"true"` / `"false"`                             | `"false"`   | Render rounded screen corner overlays on top edges.                                                                                                         |
@@ -128,14 +130,16 @@ Example:
 
 ### System
 
-| Key                            | Type                 | Default   | Description                                                                                          |
-| ------------------------------ | -------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| `bloom-scale`                  | float string         | `"1.0"`   | UI scale factor (0.8 to 1.3). Changing this re-registers AppBars to resize the reserved screen area. |
-| `bloom-low-battery-threshold`  | integer string       | `"20"`    | Battery percentage that triggers the low-battery alert pulse (5 to 50, step 5).                      |
-| `bloom-auto-update`            | `"true"` / `"false"` | `"false"` | Check for and download updates automatically on startup.                                             |
-| `bloom-show-update-indicator`  | `"true"` / `"false"` | `"true"`  | Show a green dot on the notch when an update is available.                                           |
-| `bloom-announcement-dismissed` | announcement id      | `""`      | ID of the last dismissed in-app announcement (published via `website/public/announcements.json`).    |
-| `bloom-time-format-24h`        | `"true"` / `"false"` | `"false"` | Use 24-hour clock format in the notch. When `"false"`, displays 12-hour format with AM/PM.           |
+| Key                            | Type                 | Default   | Description                                                                                                     |
+| ------------------------------ | -------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| `bloom-scale`                  | float string         | `"1.0"`   | Global UI scale factor fallback (0.8 to 1.3). Changing this re-registers AppBars to resize screen areas.         |
+| `bloom-notch-scale`            | float string         | `"1.0"`   | Notch UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes and repositions the Notch bar.   |
+| `bloom-dock-scale`             | float string         | `"1.0"`   | Dock UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes Dock apps and AppBars.           |
+| `bloom-low-battery-threshold`  | integer string       | `"20"`    | Battery percentage that triggers the low-battery alert pulse (5 to 50, step 5).                                 |
+| `bloom-auto-update`            | `"true"` / `"false"` | `"false"` | Check for and download updates automatically on startup.                                                        |
+| `bloom-show-update-indicator`  | `"true"` / `"false"` | `"true"`  | Show a green dot on the notch when an update is available.                                                      |
+| `bloom-announcement-dismissed` | announcement id      | `""`      | ID of the last dismissed in-app announcement (published via `website/public/announcements.json`).               |
+| `bloom-time-format-24h`        | `"true"` / `"false"` | `"false"` | Use 24-hour clock format in the notch. When `"false"`, displays 12-hour format with AM/PM.                      |
 
 ### Internal (Do Not Edit Manually)
 

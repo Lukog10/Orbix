@@ -466,7 +466,7 @@ pub async fn change_notch_mode(app: AppHandle, _mode: String) {
             let m_pos = monitor.position();
             let m_size = monitor.size();
             let scale = monitor.scale_factor();
-            let bloom_scale = crate::utils::get_bloom_scale(&app);
+            let bloom_scale = crate::utils::get_notch_scale(&app);
             let target_height = (520.0 * bloom_scale * scale) as u32;
             let _ = main_win.set_position(tauri::PhysicalPosition::new(m_pos.x, m_pos.y));
             let _ = main_win.set_size(tauri::PhysicalSize::new(m_size.width, target_height));
@@ -2859,6 +2859,17 @@ fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::V
     // Reconcile the notch from the live mode: a scale change alters the
     // reserved strip height, and peek/smart must never hold a reservation.
     crate::services::reconcile_main_appbar(app);
+    if let Some(main_win) = app.get_webview_window("main") {
+        if let Ok(Some(monitor)) = main_win.primary_monitor() {
+            let m_pos = monitor.position();
+            let m_size = monitor.size();
+            let scale = monitor.scale_factor();
+            let notch_scale = crate::utils::get_notch_scale(app);
+            let target_height = (520.0 * notch_scale * scale) as u32;
+            let _ = main_win.set_position(tauri::PhysicalPosition::new(m_pos.x, m_pos.y));
+            let _ = main_win.set_size(tauri::PhysicalSize::new(m_size.width, target_height));
+        }
+    }
     if let Some(dock_win) = app.get_webview_window("dock") {
         let is_fixed = settings
             .get("bloom-dock-mode")
@@ -2911,7 +2922,7 @@ pub async fn save_setting(app: AppHandle, key: String, value: serde_json::Value)
             serde_json::json!({ "key": &key_clone, "value": &value_clone }),
         );
 
-        if key_clone == "bloom-scale" {
+        if key_clone == "bloom-scale" || key_clone == "bloom-notch-scale" || key_clone == "bloom-dock-scale" {
             re_register_appbars(&app_clone, &settings);
         }
     })
@@ -3972,7 +3983,10 @@ pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
         );
     }
 
-    if imported.get("bloom-scale").is_some() {
+    if imported.contains_key("bloom-scale")
+        || imported.contains_key("bloom-notch-scale")
+        || imported.contains_key("bloom-dock-scale")
+    {
         re_register_appbars(&app, &imported);
     }
 

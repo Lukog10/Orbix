@@ -143,6 +143,10 @@ function SettingsApp() {
 							handleThemeColorChange={settings.handleThemeColorChange}
 							themeOpacity={settings.themeOpacity}
 							handleOpacityChange={settings.handleOpacityChange}
+							notchOpacity={settings.notchOpacity}
+							handleNotchOpacityChange={settings.handleNotchOpacityChange}
+							dockOpacity={settings.dockOpacity}
+							handleDockOpacityChange={settings.handleDockOpacityChange}
 							themeSaturation={settings.themeSaturation}
 							handleSaturationChange={settings.handleSaturationChange}
 							themeBrightness={settings.themeBrightness}
@@ -151,6 +155,10 @@ function SettingsApp() {
 							toggleCorners={settings.toggleCorners}
 							scale={settings.scale}
 							handleScaleChange={settings.handleScaleChange}
+							notchScale={settings.notchScale}
+							handleNotchScaleChange={settings.handleNotchScaleChange}
+							dockScale={settings.dockScale}
+							handleDockScaleChange={settings.handleDockScaleChange}
 						/>
 					)}
 					{activeTab === "notch" && (

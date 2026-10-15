@@ -166,6 +166,16 @@ export function useSettings() {
 	const [scale, setScale] = useState(() =>
 		parseFloat(localStorage.getItem("bloom-scale") || "1.0")
 	);
+	const [notchScale, setNotchScale] = useState(() => {
+		const val = localStorage.getItem("bloom-notch-scale");
+		if (val !== null) return parseFloat(val);
+		return parseFloat(localStorage.getItem("bloom-scale") || "1.0");
+	});
+	const [dockScale, setDockScale] = useState(() => {
+		const val = localStorage.getItem("bloom-dock-scale");
+		if (val !== null) return parseFloat(val);
+		return parseFloat(localStorage.getItem("bloom-scale") || "1.0");
+	});
 	const [themeMode, setThemeMode] = useState(
 		() => localStorage.getItem("bloom-theme-mode") || "dark"
 	);
@@ -175,6 +185,18 @@ export function useSettings() {
 	const [themeOpacity, setThemeOpacity] = useState(() => {
 		const val = localStorage.getItem("bloom-theme-opacity");
 		return val !== null ? parseFloat(val) : 0.8;
+	});
+	const [notchOpacity, setNotchOpacity] = useState(() => {
+		const val = localStorage.getItem("bloom-notch-opacity");
+		if (val !== null) return parseFloat(val);
+		const globalVal = localStorage.getItem("bloom-theme-opacity");
+		return globalVal !== null ? parseFloat(globalVal) : 0.8;
+	});
+	const [dockOpacity, setDockOpacity] = useState(() => {
+		const val = localStorage.getItem("bloom-dock-opacity");
+		if (val !== null) return parseFloat(val);
+		const globalVal = localStorage.getItem("bloom-theme-opacity");
+		return globalVal !== null ? parseFloat(globalVal) : 0.8;
 	});
 	const [themeSaturation, setThemeSaturation] = useState(() => {
 		const val = localStorage.getItem("bloom-theme-saturation");
@@ -244,6 +266,8 @@ export function useSettings() {
 
 			apply(getVal("bloom-temp-unit"), setTempUnitFahrenheit, (v) => v === "fahrenheit");
 			apply(getVal("bloom-scale"), setScale, parseFloat);
+			apply(getVal("bloom-notch-scale") ?? getVal("bloom-scale"), setNotchScale, parseFloat);
+			apply(getVal("bloom-dock-scale") ?? getVal("bloom-scale"), setDockScale, parseFloat);
 			apply(getVal("bloom-low-battery-threshold"), setLowBatteryThreshold, parseInt);
 
 			apply(getVal("bloom-notch-mode"), setNotchMode, (v) => (v === "auto-hide" ? "smart" : v));
@@ -262,6 +286,8 @@ export function useSettings() {
 			apply(getVal("bloom-theme-mode"), setThemeMode, (v) => v);
 			apply(getVal("bloom-theme-color"), setThemeColor, (v) => v);
 			apply(getVal("bloom-theme-opacity"), setThemeOpacity, parseFloat);
+			apply(getVal("bloom-notch-opacity") ?? getVal("bloom-theme-opacity"), setNotchOpacity, parseFloat);
+			apply(getVal("bloom-dock-opacity") ?? getVal("bloom-theme-opacity"), setDockOpacity, parseFloat);
 			apply(getVal("bloom-theme-saturation"), setThemeSaturation, parseFloat);
 			apply(getVal("bloom-theme-brightness"), setThemeBrightness, parseFloat);
 
@@ -331,6 +357,8 @@ export function useSettings() {
 		"bloom-time-format-24h": setTimeFormat24h,
 		"bloom-low-battery-threshold": setLowBatteryThreshold,
 		"bloom-scale": setScale,
+		"bloom-notch-scale": setNotchScale,
+		"bloom-dock-scale": setDockScale,
 		"bloom-temp-unit": (v) => setTempUnitFahrenheit(v === "fahrenheit"),
 		"bloom-auto-update": setAutoUpdate,
 		"bloom-volume-overlay-enabled": setVolumeOverlayEnabled,
@@ -340,6 +368,8 @@ export function useSettings() {
 		"bloom-theme-mode": setThemeMode,
 		"bloom-theme-color": setThemeColor,
 		"bloom-theme-opacity": setThemeOpacity,
+		"bloom-notch-opacity": setNotchOpacity,
+		"bloom-dock-opacity": setDockOpacity,
 		"bloom-theme-saturation": setThemeSaturation,
 		"bloom-theme-brightness": setThemeBrightness,
 		"bloom-weather-city": (v) => setCityName(v || "")
@@ -742,6 +772,16 @@ export function useSettings() {
 		saveSettingDebounced("bloom-scale", val.toString(), 200);
 	};
 
+	const handleNotchScaleChange = (val: number) => {
+		setNotchScale(val);
+		saveSettingDebounced("bloom-notch-scale", val.toString(), 200);
+	};
+
+	const handleDockScaleChange = (val: number) => {
+		setDockScale(val);
+		saveSettingDebounced("bloom-dock-scale", val.toString(), 200);
+	};
+
 	const handleWidgetsChange = (config: WidgetConfig) => {
 		setStatusWidgets(config);
 		saveSetting("bloom-status-widgets", JSON.stringify(config));
@@ -784,6 +824,16 @@ export function useSettings() {
 	const handleOpacityChange = (value: number) => {
 		setThemeOpacity(value);
 		saveSettingDebounced("bloom-theme-opacity", String(value));
+	};
+
+	const handleNotchOpacityChange = (value: number) => {
+		setNotchOpacity(value);
+		saveSettingDebounced("bloom-notch-opacity", String(value));
+	};
+
+	const handleDockOpacityChange = (value: number) => {
+		setDockOpacity(value);
+		saveSettingDebounced("bloom-dock-opacity", String(value));
 	};
 
 	const handleSaturationChange = (value: number) => {
@@ -933,6 +983,10 @@ export function useSettings() {
 		toggleUpdateIndicator,
 		scale,
 		handleScaleChange,
+		notchScale,
+		handleNotchScaleChange,
+		dockScale,
+		handleDockScaleChange,
 		cornersEnabled,
 		toggleCorners,
 
@@ -943,6 +997,10 @@ export function useSettings() {
 		handleThemeColorChange,
 		themeOpacity,
 		handleOpacityChange,
+		notchOpacity,
+		handleNotchOpacityChange,
+		dockOpacity,
+		handleDockOpacityChange,
 		themeSaturation,
 		handleSaturationChange,
 		themeBrightness,
