@@ -424,7 +424,6 @@ function App() {
 
 	const [time, setTime] = useState("");
 	const [isHovered, setIsHovered] = useState(false);
-	const [appsInputFocused, setAppsInputFocused] = useState(false);
 	// Set once the open notch is clicked; shows the panel arrows until hover ends.
 	const [notchClicked, setNotchClicked] = useState(false);
 	const [isReady, setIsReady] = useState(false);
@@ -1340,7 +1339,10 @@ function App() {
 	// expanded. Hovering it cancels the timer; leaving collapses it.
 	const shelfCollapseTimer = useRef<number | null>(null);
 	const shelfRestingModeRef = useRef<BloomMode>("status");
-	shelfRestingModeRef.current = "status";
+	shelfRestingModeRef.current =
+		mediaInfo.has_media && isPlaying && settingsMusicModeEnabled && settingsMusicCompactNotch
+			? "music"
+			: "status";
 
 	// Shared hover-release, called on DOM hover end and when the backend
 	// reports the pointer left the (now click-through) notch window. Clears
@@ -1356,7 +1358,9 @@ function App() {
 
 	const releaseNotchHover = useCallback(() => {
 		cancelNotchClose();
-		if (appsInputFocused || bloomMode === "apps") return;
+		if (document.activeElement instanceof HTMLElement) {
+			document.activeElement.blur();
+		}
 		setIsHovered(false);
 		setIsNotchHovered(false);
 		setNotchClicked(false);
@@ -1367,14 +1371,15 @@ function App() {
 			prev === "status" ||
 			prev === "shelf" ||
 			prev === "power" ||
-			prev === "wallpaper"
+			prev === "wallpaper" ||
+			prev === "apps"
 				? shelfRestingModeRef.current
 				: prev
 		);
-	}, [appsInputFocused, bloomMode, cancelNotchClose]);
+	}, [cancelNotchClose]);
 
 	const scheduleNotchClose = useCallback(
-		(delay = 400) => {
+		(delay = 150) => {
 			cancelNotchClose();
 			notchCloseTimerRef.current = window.setTimeout(() => {
 				notchCloseTimerRef.current = null;
@@ -2517,7 +2522,7 @@ function App() {
 		if (isCalendarMode) return 480;
 		if (bloomMode === "shelf") return 380;
 		if (bloomMode === "command-center" && isHovered) return 365;
-		if (bloomMode === "apps") return 530;
+		if (bloomMode === "apps") return isHovered ? 530 : 140;
 		if (bloomMode === "power" && isHovered) return 360;
 		if (bloomMode === "wallpaper") return 860;
 		if (bloomMode === "status" && isHovered) {
@@ -2550,7 +2555,7 @@ function App() {
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
 		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 332) : 36;
-		if (bloomMode === "apps") return 400;
+		if (bloomMode === "apps") return isHovered ? 400 : 36;
 		if (bloomMode === "power") return isHovered ? 124 : 36;
 		if (bloomMode === "wallpaper") return 320;
 		if (bloomMode === "status") return 36;
@@ -2686,7 +2691,7 @@ function App() {
 						}
 					}}
 					onHoverEnd={() => {
-						scheduleNotchClose(400);
+						scheduleNotchClose(150);
 					}}
 					style={{ originY: 0 }}
 					transition={{
@@ -3573,9 +3578,7 @@ function App() {
 								<AnimatePresence>
 									{bloomMode === "apps" && (
 										<AppsView
-											onFocusChange={setAppsInputFocused}
 											onClose={() => {
-												setAppsInputFocused(false);
 												setBloomMode(shelfRestingModeRef.current);
 											}}
 											onSwitchMode={(m) => setBloomMode(m as BloomMode)}
