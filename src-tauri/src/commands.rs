@@ -32,6 +32,9 @@ pub async fn set_dock_hovered(hovered: bool) {
 #[tauri::command]
 pub async fn set_notch_hovered(app: AppHandle, hovered: bool) {
     NOTCH_IS_HOVERED.store(hovered, Ordering::Relaxed);
+    if !hovered {
+        crate::services::clear_notch_expiry();
+    }
     // Re-evaluate right away. During a native drag the webview never sees the
     // pointer leave, so waiting for the next mouse move can leave the notch
     // (and its edge-hover state) stuck expanded in peek/smart mode.
@@ -2996,6 +2999,14 @@ pub async fn capture_window_thumbnail(
                     // Minimized windows (IsWindow == true) are kept intact
                     if guard.len() > 15 {
                         guard.retain(|&k, _| IsWindow(Some(HWND(k as *mut _))).as_bool());
+                        if guard.len() > 15 {
+                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            entries.sort_by_key(|e| e.1);
+                            let to_remove = guard.len() - 15;
+                            for (old_k, _) in entries.into_iter().take(to_remove) {
+                                guard.remove(&old_k);
+                            }
+                        }
                     }
                 }
             }

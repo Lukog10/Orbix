@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{
-    atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, Ordering},
+    atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, AtomicU32, Ordering},
     Mutex, OnceLock,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -497,6 +497,18 @@ unsafe extern "system" fn focus_event_proc(
             if let Some(cache) = crate::state::THUMBNAIL_CACHE.get() {
                 if let Ok(mut guard) = cache.lock() {
                     guard.insert(hwnd_raw, (img, crate::utils::get_now_ms()));
+                    if guard.len() > 15 {
+                        use windows::Win32::UI::WindowsAndMessaging::IsWindow;
+                        guard.retain(|&k, _| unsafe { IsWindow(Some(HWND(k as *mut _))).as_bool() });
+                        if guard.len() > 15 {
+                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            entries.sort_by_key(|e| e.1);
+                            let to_remove = guard.len() - 15;
+                            for (old_k, _) in entries.into_iter().take(to_remove) {
+                                guard.remove(&old_k);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -584,6 +596,14 @@ unsafe extern "system" fn thumbnail_capture_proc(
                         use windows::Win32::UI::WindowsAndMessaging::IsWindow;
                         guard
                             .retain(|&k, _| unsafe { IsWindow(Some(HWND(k as *mut _))).as_bool() });
+                        if guard.len() > 15 {
+                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            entries.sort_by_key(|e| e.1);
+                            let to_remove = guard.len() - 15;
+                            for (old_k, _) in entries.into_iter().take(to_remove) {
+                                guard.remove(&old_k);
+                            }
+                        }
                     }
                 }
             }
@@ -820,56 +840,64 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
                                         buffer_pos += 1;
                                     }
                                     if buffer_pos >= FFT_SIZE {
-                                        // Run FFT on the windowed buffer
-                                        for (i, &sample) in fft_buffer.iter().enumerate() {
-                                            fft_input[i] =
-                                                rustfft::num_complex::Complex::new(sample, 0.0);
-                                        }
-                                        fft.process(&mut fft_input);
+                                        let now = crate::utils::get_now_ms();
+                                        static LAST_VIZ_EMIT_MS: AtomicI64 = AtomicI64::new(0);
+                                        let last = LAST_VIZ_EMIT_MS.load(Ordering::Relaxed);
+                                        let notch_vis = NOTCH_IS_VISIBLE.load(Ordering::Relaxed);
 
-                                        let band_ranges =
-                                            [(1, 2), (2, 6), (6, 18), (18, 60), (60, 200)];
-                                        let mut output = [0.0f32; NUM_BANDS];
-                                        for (band_idx, &(bin_start, bin_end)) in
-                                            band_ranges.iter().enumerate()
-                                        {
-                                            let mut total_mag = 0.0f32;
-                                            let mut count = 0u32;
-                                            for bin in bin_start..bin_end {
-                                                if bin >= FFT_SIZE / 2 {
-                                                    break;
+                                        if notch_vis && (now - last >= 33) {
+                                            LAST_VIZ_EMIT_MS.store(now, Ordering::Relaxed);
+                                            // Run FFT on the windowed buffer
+                                            for (i, &sample) in fft_buffer.iter().enumerate() {
+                                                fft_input[i] =
+                                                    rustfft::num_complex::Complex::new(sample, 0.0);
+                                            }
+                                            fft.process(&mut fft_input);
+
+                                            let band_ranges =
+                                                [(1, 2), (2, 6), (6, 18), (18, 60), (60, 200)];
+                                            let mut output = [0.0f32; NUM_BANDS];
+                                            for (band_idx, &(bin_start, bin_end)) in
+                                                band_ranges.iter().enumerate()
+                                            {
+                                                let mut total_mag = 0.0f32;
+                                                let mut count = 0u32;
+                                                for bin in bin_start..bin_end {
+                                                    if bin >= FFT_SIZE / 2 {
+                                                        break;
+                                                    }
+                                                    let mag = fft_input[bin].norm();
+                                                    total_mag += mag;
+                                                    count += 1;
                                                 }
-                                                let mag = fft_input[bin].norm();
-                                                total_mag += mag;
-                                                count += 1;
+                                                let avg_mag = total_mag / count.max(1) as f32;
+                                                let mut scaled_mag = avg_mag;
+                                                let weighting = [1.2, 1.2, 1.5, 2.8, 5.0];
+                                                scaled_mag *= weighting[band_idx];
+                                                if scaled_mag > max_band_energies[band_idx] {
+                                                    max_band_energies[band_idx] = scaled_mag;
+                                                } else {
+                                                    max_band_energies[band_idx] *= 0.99;
+                                                }
+                                                let target = (scaled_mag
+                                                    / max_band_energies[band_idx].max(0.12))
+                                                .min(1.0)
+                                                .powf(0.75);
+                                                let is_rising = target > prev_values[band_idx];
+                                                let smooth_factor = if is_rising { 0.10 } else { 0.20 };
+                                                output[band_idx] = prev_values[band_idx]
+                                                    * smooth_factor
+                                                    + target * (1.0 - smooth_factor);
+                                                output[band_idx] = output[band_idx].clamp(0.18, 1.0);
+                                                prev_values[band_idx] = output[band_idx];
                                             }
-                                            let avg_mag = total_mag / count.max(1) as f32;
-                                            let mut scaled_mag = avg_mag;
-                                            let weighting = [1.2, 1.2, 1.5, 2.8, 5.0];
-                                            scaled_mag *= weighting[band_idx];
-                                            if scaled_mag > max_band_energies[band_idx] {
-                                                max_band_energies[band_idx] = scaled_mag;
-                                            } else {
-                                                max_band_energies[band_idx] *= 0.99;
-                                            }
-                                            let target = (scaled_mag
-                                                / max_band_energies[band_idx].max(0.12))
-                                            .min(1.0)
-                                            .powf(0.75);
-                                            let is_rising = target > prev_values[band_idx];
-                                            let smooth_factor = if is_rising { 0.10 } else { 0.20 };
-                                            output[band_idx] = prev_values[band_idx]
-                                                * smooth_factor
-                                                + target * (1.0 - smooth_factor);
-                                            output[band_idx] = output[band_idx].clamp(0.18, 1.0);
-                                            prev_values[band_idx] = output[band_idx];
+                                            let _ = app_handle.emit(
+                                                "audio-visualization",
+                                                AudioVisualizationData {
+                                                    frequencies: output.to_vec(),
+                                                },
+                                            );
                                         }
-                                        let _ = app_handle.emit(
-                                            "audio-visualization",
-                                            AudioVisualizationData {
-                                                frequencies: output.to_vec(),
-                                            },
-                                        );
                                         buffer_pos = 0;
                                     }
                                 }
@@ -2104,10 +2132,15 @@ static MH_CACHED_MON_X: AtomicI32 = AtomicI32::new(0);
 static MH_CACHED_MON_Y: AtomicI32 = AtomicI32::new(0);
 static MH_CACHED_MON_W: AtomicI32 = AtomicI32::new(1920);
 static MH_CACHED_MON_H: AtomicI32 = AtomicI32::new(1080);
+static MH_CACHED_MON_SCALE: AtomicU32 = AtomicU32::new(0x3f800000); // 1.0f32
 static MH_LAST_PROCESS_MS: AtomicI64 = AtomicI64::new(0);
 static CAPTURE_UI_ACTIVE: AtomicBool = AtomicBool::new(false);
 static CAPTURE_RECHECK: AtomicBool = AtomicBool::new(true);
 static CAPTURE_LAST_SCAN_MS: AtomicI64 = AtomicI64::new(0);
+
+pub fn clear_notch_expiry() {
+    MH_TOPBAR_EXPIRY_MS.store(0, Ordering::Relaxed);
+}
 
 /// Hover-intent ("pressure") gate for the top edge. Contact with the top band
 /// only starts a dwell clock; the edge is armed — and only then peeks the notch
@@ -2127,15 +2160,14 @@ static MH_TOP_EDGE_ARMED: AtomicBool = AtomicBool::new(false);
 /// mixer (notch + panel), if it is open. The frontend reports the card in
 /// overlay CSS pixels; scale and monitor offset convert it to virtual-desktop
 /// coordinates.
-fn volume_mixer_physical_rect_for(app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
-    let (x, y, width, height) = (*crate::state::VOLUME_MIXER_RECT.lock().ok()?)?;
-    let ov_win = app.get_webview_window("overlay")?;
-    let monitor = ov_win.primary_monitor().ok().flatten()?;
-    let scale = monitor.scale_factor();
-    let pos = monitor.position();
+fn volume_mixer_physical_rect_for(_app: &AppHandle) -> Option<(i32, i32, i32, i32)> {
+    let (x, y, width, height) = (*crate::state::VOLUME_MIXER_RECT.try_lock().ok()?)?;
+    let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
+    let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
+    let scale = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed)) as f64;
     Some((
-        pos.x + (x * scale) as i32,
-        pos.y + (y * scale) as i32,
+        mon_x + (x * scale) as i32,
+        mon_y + (y * scale) as i32,
         (width * scale) as i32,
         (height * scale) as i32,
     ))
@@ -2161,15 +2193,10 @@ fn setup_volume_mixer_watchdog(app_handle: AppHandle) {
         if inside {
             continue;
         }
-        let at_left_edge = app_handle
-            .primary_monitor()
-            .ok()
-            .flatten()
-            .is_some_and(|m| {
-                let pos = m.position();
-                let size = m.size();
-                pt.x <= pos.x + 8 && pt.y >= pos.y && pt.y <= pos.y + size.height as i32
-            });
+        let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
+        let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
+        let mon_h = MH_CACHED_MON_H.load(Ordering::Relaxed);
+        let at_left_edge = pt.x <= mon_x + 8 && pt.y >= mon_y && pt.y <= mon_y + mon_h;
         if !at_left_edge && MH_LAST_LEFT_EDGE_HOVER.swap(0, Ordering::Relaxed) != 0 {
             MH_LEFT_EXPIRY_MS.store(0, Ordering::Relaxed);
             let _ = app_handle.emit("volume-edge-hover", false);
@@ -2405,7 +2432,6 @@ fn update_main_interaction(
         return;
     }
 
-    let in_notch_hover = NOTCH_IS_HOVERED.load(Ordering::Relaxed);
     let scale = main_win.scale_factor().unwrap_or(1.0);
     // The top-edge reveal exists only to bring a hidden notch on screen: it is
     // dwell-gated, and fixed mode (always visible) skips it entirely. This is
@@ -2421,12 +2447,6 @@ fn update_main_interaction(
         top_edge_armed_for(app_handle, cursor, now, scale)
     };
 
-    let mut is_notch_hovered = false;
-    if edge_armed || in_notch_hover {
-        is_notch_hovered = true;
-        MH_TOPBAR_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
-    }
-
     // An OS file drag can only reach the webview's drop target when the
     // window is not click-through: WS_EX_TRANSPARENT hides the entire window
     // (and its webview children) from OLE hit-testing, which shows the
@@ -2437,69 +2457,69 @@ fn update_main_interaction(
         (GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000) != 0
     };
 
-    let mut is_click_interactive = false;
-    let main_rect_val = MAIN_WINDOW_RECT.lock().ok().and_then(|g| *g);
+    let mut in_notch_rect = false;
+    let mut in_top_span = false;
 
-    if let Some((win_pos, _)) = main_rect_val {
-        if let Ok(region) = NOTCH_RECT.try_lock() {
-            if let Some(r) = *region {
-                let pad_x = (25.0 * scale) as i32;
-                let pad_y_bottom = (25.0 * scale) as i32;
-                // Hysteresis keeps the notch interactive a little past its
-                // bounds once grabbed, so removing the edge-forced
-                // interactivity doesn't reintroduce boundary flicker.
-                let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 {
-                    (15.0 * scale) as i32
-                } else {
-                    0
-                };
-                let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
-                let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                let ry_top = win_pos.y;
-                let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+    if let Ok(guard) = MAIN_WINDOW_RECT.try_lock() {
+        if let Some((win_pos, _)) = *guard {
+            if let Ok(region) = NOTCH_RECT.try_lock() {
+                if let Some(r) = *region {
+                    let pad_x = (25.0 * scale) as i32;
+                    let pad_y_bottom = (25.0 * scale) as i32;
+                    // Hysteresis keeps the notch interactive a little past its
+                    // bounds once grabbed, so removing the edge-forced
+                    // interactivity doesn't reintroduce boundary flicker.
+                    let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 {
+                        (15.0 * scale) as i32
+                    } else {
+                        0
+                    };
+                    let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
+                    let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
+                    let ry_top = win_pos.y;
+                    let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
 
-                let in_notch_rect = cursor.x >= rx
-                    && cursor.x <= (rx + rw)
-                    && cursor.y >= ry_top
-                    && cursor.y <= ry_bottom;
+                    in_notch_rect = cursor.x >= rx
+                        && cursor.x <= (rx + rw)
+                        && cursor.y >= ry_top
+                        && cursor.y <= ry_bottom;
 
-                if in_notch_rect {
-                    MH_TOPBAR_EXPIRY_MS.store(now + 400, Ordering::Relaxed);
-                }
-
-                // Approaching along the top edge keeps the window interactive
-                // while near the notch's horizontal span. This must stay
-                // immediate (never dwell-gated): NOTCH_RECT lags the expand/
-                // contract animation, and letting click-through flip mid-hover
-                // makes the notch expand/contract repeatedly. It is gated on
-                // the notch being on screen (or a live hover) so a hidden
-                // notch still can't swallow pass-by clicks.
-                let edge_pad = (60.0 * scale) as i32;
-                let in_top_span = in_top_edge_band(cursor, scale)
-                    && cursor.x >= rx - edge_pad
-                    && cursor.x <= rx + rw + edge_pad;
-
-                let notch_visible = NOTCH_IS_VISIBLE.load(Ordering::Relaxed);
-                let expiry = MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
-                let hover_active = is_notch_hovered || now < expiry;
-                if (notch_visible || hover_active) && (in_notch_rect || in_top_span) {
-                    is_click_interactive = true;
-                } else if hover_active && now < expiry {
-                    // Grace period keeps click-interactive during brief boundary exits or scrolling
-                    is_click_interactive = true;
-                }
-
-                // A held left button means a possible OS drag: OLE cannot
-                // hit-test a click-through window, so force interactivity over
-                // the notch or the drop target is unreachable.
-                if drag_held && (in_notch_rect || in_top_span) {
-                    is_click_interactive = true;
+                    // Approaching along the top edge keeps the window interactive
+                    // while near the notch's horizontal span. This must stay
+                    // immediate (never dwell-gated): NOTCH_RECT lags the expand/
+                    // contract animation, and letting click-through flip mid-hover
+                    // makes the notch expand/contract repeatedly. It is gated on
+                    // the notch being on screen (or a live hover) so a hidden
+                    // notch still can't swallow pass-by clicks.
+                    let edge_pad = (60.0 * scale) as i32;
+                    in_top_span = in_top_edge_band(cursor, scale)
+                        && cursor.x >= rx - edge_pad
+                        && cursor.x <= rx + rw + edge_pad;
                 }
             }
         }
     }
 
-    let final_notch_hover = is_notch_hovered || now < MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
+    // Refresh expiry ONLY when cursor is actually within the notch bounds, top span, or edge armed.
+    // Never refresh expiry just because in_notch_hover was true in the past.
+    if in_notch_rect || in_top_span || edge_armed {
+        MH_TOPBAR_EXPIRY_MS.store(now + 250, Ordering::Relaxed);
+    }
+
+    let expiry = MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
+    let grace_active = now < expiry;
+
+    let mut is_click_interactive = false;
+    if in_notch_rect || in_top_span {
+        is_click_interactive = true;
+    } else if grace_active {
+        // Grace period keeps click-interactive during brief boundary exits or scrolling
+        is_click_interactive = true;
+    } else if drag_held && (in_notch_rect || in_top_span) {
+        is_click_interactive = true;
+    }
+
+    let final_notch_hover = edge_armed || in_notch_rect || in_top_span || grace_active;
     let prev = MH_LAST_TOP_EDGE_HOVER.load(Ordering::Relaxed);
     let new_val = if final_notch_hover { 1 } else { 0 };
     if prev != new_val {
@@ -2507,7 +2527,8 @@ fn update_main_interaction(
         MH_LAST_TOP_EDGE_HOVER.store(new_val, Ordering::Relaxed);
     }
 
-    let final_ignore = !is_click_interactive && !MENU_IS_OPEN.load(Ordering::Relaxed);
+    let menu_open = MENU_IS_OPEN.load(Ordering::Relaxed);
+    let final_ignore = !is_click_interactive && !menu_open;
     let prev_ignore = MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed);
     let new_ignore = if final_ignore { 1 } else { 0 };
     if prev_ignore != new_ignore {
@@ -2520,6 +2541,8 @@ fn update_main_interaction(
         if new_ignore == 1 && NOTCH_IS_HOVERED.swap(false, Ordering::Relaxed) {
             let _ = app_handle.emit("notch-pointer-left", ());
         }
+    } else if final_ignore && NOTCH_IS_HOVERED.swap(false, Ordering::Relaxed) {
+        let _ = app_handle.emit("notch-pointer-left", ());
     }
 }
 
@@ -2535,17 +2558,47 @@ fn setup_top_edge_watchdog(app_handle: AppHandle) {
             if CAPTURE_UI_ACTIVE.load(Ordering::Relaxed) || SHUTTING_DOWN.load(Ordering::Relaxed) {
                 continue;
             }
+
+            let now = now_ms();
+
+            // Refresh cached monitor info every 1s safely in background thread (never on mouse hook!)
+            if now - MH_LAST_MONITOR_UPDATE_MS.load(Ordering::Relaxed) > 1000 {
+                if let Ok(Some(monitor)) = app_handle.primary_monitor() {
+                    let pos = *monitor.position();
+                    let size = *monitor.size();
+                    let scale = monitor.scale_factor() as f32;
+                    if let Ok(mut p) = MH_CACHED_MON_POS.try_lock() {
+                        *p = Some((pos.x, pos.y));
+                    }
+                    if let Ok(mut s) = MH_CACHED_MON_SIZE.try_lock() {
+                        *s = Some((size.width, size.height));
+                    }
+                    MH_CACHED_MON_X.store(pos.x, Ordering::Relaxed);
+                    MH_CACHED_MON_Y.store(pos.y, Ordering::Relaxed);
+                    MH_CACHED_MON_W.store(size.width as i32, Ordering::Relaxed);
+                    MH_CACHED_MON_H.store(size.height as i32, Ordering::Relaxed);
+                    MH_CACHED_MON_SCALE.store(scale.to_bits(), Ordering::Relaxed);
+                    MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
+                }
+            }
+
             let mut pt = windows::Win32::Foundation::POINT::default();
             if unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut pt) }.is_err() {
                 continue;
             }
             let enter_ms = MH_TOP_EDGE_ENTER_MS.load(Ordering::Relaxed);
-            if pt.x == last_pt.x && pt.y == last_pt.y && enter_ms == 0 {
+            let main_ignored = MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 1;
+            let expiry = MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
+            let hover_active = NOTCH_IS_HOVERED.load(Ordering::Relaxed);
+
+            // Do not skip if window is currently interactive (!main_ignored),
+            // or if hover flag is set, or if expiry hasn't elapsed.
+            if pt.x == last_pt.x && pt.y == last_pt.y && enter_ms == 0 && main_ignored && !hover_active && now >= expiry {
                 continue;
             }
             last_pt = pt;
             let fg_fs = CURRENT_FOREGROUND_FULLSCREEN.load(Ordering::Relaxed);
-            update_main_interaction(&app_handle, pt, now_ms(), fg_fs);
+            update_main_interaction(&app_handle, pt, now, fg_fs);
         }
     });
 }
@@ -2600,21 +2653,6 @@ unsafe extern "system" fn mouse_hook_proc(
                 return CallNextHookEx(None, code, wparam, lparam);
             }
 
-            // Refresh cached monitor info every 1s
-            if now - MH_LAST_MONITOR_UPDATE_MS.load(Ordering::Relaxed) > 1000 {
-                if let Ok(Some(monitor)) = app_handle.primary_monitor() {
-                    let pos = *monitor.position();
-                    let size = *monitor.size();
-                    *MH_CACHED_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
-                    *MH_CACHED_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
-                    MH_CACHED_MON_X.store(pos.x, Ordering::Relaxed);
-                    MH_CACHED_MON_Y.store(pos.y, Ordering::Relaxed);
-                    MH_CACHED_MON_W.store(size.width as i32, Ordering::Relaxed);
-                    MH_CACHED_MON_H.store(size.height as i32, Ordering::Relaxed);
-                    MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
-                }
-            }
-
             let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
             let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
             let mon_w = MH_CACHED_MON_W.load(Ordering::Relaxed);
@@ -2652,7 +2690,7 @@ unsafe extern "system" fn mouse_hook_proc(
                     let mut is_hovered = false;
                     let mut dock_span: Option<(i32, i32)> = None;
 
-                    let dock_rect_val = DOCK_WINDOW_RECT.lock().ok().and_then(|g| *g);
+                    let dock_rect_val = DOCK_WINDOW_RECT.try_lock().ok().and_then(|g| *g);
 
                     if let Some((win_pos, win_size)) = dock_rect_val {
                         let in_window = cursor.x >= win_pos.x
@@ -2784,27 +2822,18 @@ unsafe extern "system" fn mouse_hook_proc(
                 // edge hover is established, keep it alive while the cursor is
                 // over the card too (otherwise pausing on the mixer button lets
                 // the hover expire and the HUD hides mid-click).
+                let sc = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed));
+                let nw = (42.0 * sc) as i32;
+                let nh = (196.0 * sc) as i32;
+                let nx = mon_x;
+                let ny = mon_y + (mon_h / 2) - (nh / 2);
                 let over_card = !at_left_edge
                     && !in_mixer
                     && MH_LAST_LEFT_EDGE_HOVER.load(Ordering::Relaxed) != 0
-                    && app_handle
-                        .primary_monitor()
-                        .ok()
-                        .flatten()
-                        .is_some_and(|m| {
-                            let bloom_scale = crate::utils::get_bloom_scale(app_handle);
-                            let ms = m.size();
-                            let mp = m.position();
-                            let sc = m.scale_factor() * bloom_scale;
-                            let nw = (42.0 * sc) as i32;
-                            let nh = (196.0 * sc) as i32;
-                            let nx = mp.x;
-                            let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
-                            cursor.x >= nx
-                                && cursor.x <= nx + nw
-                                && cursor.y >= ny
-                                && cursor.y <= ny + nh
-                        });
+                    && cursor.x >= nx
+                    && cursor.x <= nx + nw
+                    && cursor.y >= ny
+                    && cursor.y <= ny + nh;
 
                 if at_left_edge || in_mixer || over_card {
                     MH_LEFT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);

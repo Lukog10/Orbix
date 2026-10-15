@@ -539,6 +539,7 @@ function App() {
 	} | null>(null);
 	const audioToastTimerRef = useRef<number | null>(null);
 	const scheduleNotchCloseRef = useRef<(delay?: number) => void>(() => {});
+	const releaseNotchHoverRef = useRef<() => void>(() => {});
 
 	const triggerAudioToast = useCallback((message: string, type: "headphone" | "mic") => {
 		if (audioToastTimerRef.current) clearTimeout(audioToastTimerRef.current);
@@ -1039,7 +1040,7 @@ function App() {
 		// the webview still thinks the pointer is inside the notch (it cannot
 		// receive the mouseleave once the window is click-through).
 		const unlistenNotchPointerLeft = listen("notch-pointer-left", () => {
-			scheduleNotchCloseRef.current(400);
+			releaseNotchHoverRef.current();
 		});
 
 		return () => {
@@ -1385,7 +1386,8 @@ function App() {
 
 	useEffect(() => {
 		scheduleNotchCloseRef.current = scheduleNotchClose;
-	}, [scheduleNotchClose]);
+		releaseNotchHoverRef.current = releaseNotchHover;
+	}, [scheduleNotchClose, releaseNotchHover]);
 
 	const clearShelfCollapse = () => {
 		if (shelfCollapseTimer.current !== null) {
@@ -2112,9 +2114,9 @@ function App() {
 				.catch(() => {});
 		};
 		fetchMetrics();
-		const interval = setInterval(fetchMetrics, 3000);
+		const interval = setInterval(fetchMetrics, isHovered ? 3000 : 20000);
 		return () => clearInterval(interval);
-	}, []);
+	}, [isHovered]);
 
 	// Listen for brightness changes
 	useEffect(() => {
@@ -2614,7 +2616,7 @@ function App() {
 						setIsNotchHovered(true);
 					}}
 					onMouseLeave={() => {
-						scheduleNotchClose(400);
+						scheduleNotchClose(150);
 					}}
 					onPointerEnter={() => {
 						cancelNotchClose();
