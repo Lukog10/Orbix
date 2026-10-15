@@ -4440,6 +4440,31 @@ pub async fn activate_tray_icon(tray_id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
+fn fuzzy_match_simple(pattern: &str, target: &str) -> bool {
+    if pattern.is_empty() {
+        return true;
+    }
+    let p_lower = pattern.to_lowercase();
+    let t_lower = target.to_lowercase();
+    if t_lower.contains(&p_lower) {
+        return true;
+    }
+    let mut p_chars = p_lower.chars();
+    let mut current = match p_chars.next() {
+        Some(c) => c,
+        None => return true,
+    };
+    for tc in t_lower.chars() {
+        if tc == current {
+            match p_chars.next() {
+                Some(next) => current = next,
+                None => return true,
+            }
+        }
+    }
+    false
+}
+
 #[tauri::command]
 pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -4463,7 +4488,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
 
         // 1. Standard folders
         for (name, path) in &standard_folders {
-            if path.exists() && (query_lower.is_empty() || name.to_lowercase().contains(&query_lower)) {
+            if path.exists() && fuzzy_match_simple(&query_lower, name) {
                 results.push(SearchFileItem {
                     name: name.to_string(),
                     path: path.to_string_lossy().to_string(),
@@ -4484,7 +4509,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
             if let Ok(entries) = std::fs::read_dir(folder) {
                 let mut count = 0;
                 for entry in entries.flatten() {
-                    if count >= 25 {
+                    if count >= 35 {
                         break;
                     }
                     let p = entry.path();
@@ -4499,13 +4524,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
                         continue;
                     }
 
-                    let matches = if query_lower.is_empty() {
-                        true
-                    } else {
-                        file_name.to_lowercase().contains(&query_lower)
-                    };
-
-                    if matches {
+                    if fuzzy_match_simple(&query_lower, &file_name) {
                         let is_dir = p.is_dir();
                         let ext = p.extension().map(|e| e.to_string_lossy().to_string());
                         results.push(SearchFileItem {
@@ -4531,7 +4550,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
             if let Ok(entries) = std::fs::read_dir(&recent_path) {
                 let mut recent_count = 0;
                 for entry in entries.flatten() {
-                    if recent_count >= 15 {
+                    if recent_count >= 20 {
                         break;
                     }
                     let p = entry.path();
@@ -4547,13 +4566,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
                     }
 
                     let clean_name = file_name.strip_suffix(".lnk").unwrap_or(&file_name).to_string();
-                    let matches = if query_lower.is_empty() {
-                        true
-                    } else {
-                        clean_name.to_lowercase().contains(&query_lower)
-                    };
-
-                    if matches {
+                    if fuzzy_match_simple(&query_lower, &clean_name) {
                         results.push(SearchFileItem {
                             name: clean_name,
                             path: p.to_string_lossy().to_string(),

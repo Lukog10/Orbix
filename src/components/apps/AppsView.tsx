@@ -18,6 +18,7 @@ import {
 	Star
 } from "lucide-react";
 import "./AppsView.css";
+import { fuzzyMatch } from "./fuzzySearch";
 
 interface AppInfo {
 	name: string;
@@ -48,6 +49,8 @@ interface UnifiedItem {
 	action: () => Promise<void> | void;
 	copyValue?: string;
 	isPinned?: boolean;
+	score?: number;
+	matchedIndices?: number[];
 }
 
 interface StoredLaunch {
@@ -339,19 +342,29 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 		];
 	}, []);
 
-	// Categorized lists
+	// Categorized lists with full fuzzy search ranking
 	const categories = useMemo(() => {
-		const q = query.trim().toLowerCase();
+		const q = query.trim();
 
 		// 1. RECENT ITEMS
 		let recentItems: UnifiedItem[] = [];
 		if (activeFilter === "all" || activeFilter === "apps") {
 			if (recentLaunches.length > 0) {
-				const filteredRecent = q
-					? recentLaunches.filter((rl) => rl.name.toLowerCase().includes(q))
-					: recentLaunches;
+				const scoredRecent = q
+					? recentLaunches
+							.map((rl) => {
+								const res = fuzzyMatch(q, rl.name, rl.path);
+								return { rl, res };
+							})
+							.filter(({ res }) => res.matches)
+							.sort((a, b) => b.res.score - a.res.score)
+							.slice(0, 5)
+					: recentLaunches.slice(0, 5).map((rl) => ({
+							rl,
+							res: { matches: true, score: 0, matchedIndices: [] }
+					  }));
 
-				recentItems = filteredRecent.slice(0, 5).map((rl) => {
+				recentItems = scoredRecent.map(({ rl, res }) => {
 					const isPinned = pinnedIds.includes(rl.id);
 					const isGame = rl.type === "game" || isGameApp(rl.name, rl.path);
 					return {
@@ -363,6 +376,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 						iconType: isGame ? "game" : rl.type === "file" ? "file" : "app",
 						iconUrl: rl.icon,
 						isPinned,
+						score: res.score,
+						matchedIndices: res.matchedIndices,
 						action: async () => {
 							recordLaunch(rl.name, rl.path, isGame ? "game" : "app", rl.icon);
 							try {
@@ -388,6 +403,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 						iconType: isGame ? "game" : "app",
 						iconUrl: app.icon,
 						isPinned: pinnedIds.includes(id),
+						score: 0,
+						matchedIndices: [],
 						action: async () => {
 							recordLaunch(app.name, app.path, isGame ? "game" : "app", app.icon);
 							try {
@@ -405,15 +422,25 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 		// 2. APPLICATIONS (APPS & GAMES)
 		let appItems: UnifiedItem[] = [];
 		if (activeFilter === "all" || activeFilter === "apps") {
-			const matchedApps = q
-				? installedApps.filter(
-						(app) =>
-							app.name.toLowerCase().includes(q) ||
-							(app.executable && app.executable.toLowerCase().includes(q))
-				  ).slice(0, 25)
-				: installedApps.slice(recentItems.length > 0 ? 5 : 0, 22);
+			const recentPaths = new Set(recentItems.map((r) => r.path).filter(Boolean));
+			const scoredApps = q
+				? installedApps
+						.filter((app) => !recentPaths.has(app.path))
+						.map((app) => {
+							const res = fuzzyMatch(q, app.name, app.executable || app.path);
+							return { app, res };
+						})
+						.filter(({ res }) => res.matches)
+						.sort((a, b) => b.res.score - a.res.score)
+						.slice(0, 30)
+				: installedApps
+						.slice(recentItems.length > 0 ? 5 : 0, 25)
+						.map((app) => ({
+							app,
+							res: { matches: true, score: 0, matchedIndices: [] }
+						}));
 
-			appItems = matchedApps.map((app, idx) => {
+			appItems = scoredApps.map(({ app, res }, idx) => {
 				const isGame = isGameApp(app.name, app.path);
 				const id = `app-${app.name}-${idx}`;
 				return {
@@ -425,6 +452,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 					iconType: isGame ? "game" : "app",
 					iconUrl: app.icon,
 					isPinned: pinnedIds.includes(id),
+					score: res.score,
+					matchedIndices: res.matchedIndices,
 					action: async () => {
 						recordLaunch(app.name, app.path, isGame ? "game" : "app", app.icon);
 						try {
@@ -442,7 +471,20 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 		let folderItems: UnifiedItem[] = [];
 		let fileItems: UnifiedItem[] = [];
 		if (activeFilter === "all" || activeFilter === "files") {
-			fileResults.forEach((file, idx) => {
+			const scoredFiles = q
+				? fileResults
+						.map((file) => {
+							const res = fuzzyMatch(q, file.name, file.path);
+							return { file, res };
+						})
+						.filter(({ res }) => res.matches)
+						.sort((a, b) => b.res.score - a.res.score)
+				: fileResults.map((file) => ({
+						file,
+						res: { matches: true, score: 0, matchedIndices: [] }
+				  }));
+
+			scoredFiles.forEach(({ file, res }, idx) => {
 				const id = `file-${file.path}-${idx}`;
 				if (file.is_dir) {
 					folderItems.push({
@@ -454,6 +496,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 						path: file.path,
 						iconType: "folder",
 						isPinned: pinnedIds.includes(id),
+						score: res.score,
+						matchedIndices: res.matchedIndices,
 						action: async () => {
 							recordLaunch(file.name, file.path, "file");
 							try {
@@ -474,6 +518,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 						path: file.path,
 						iconType: "file",
 						isPinned: pinnedIds.includes(id),
+						score: res.score,
+						matchedIndices: res.matchedIndices,
 						action: async () => {
 							recordLaunch(file.name, file.path, "file");
 							try {
@@ -500,6 +546,7 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 					subtitle: `Expression: ${query.trim()}`,
 					iconType: "calc",
 					copyValue: mathResult,
+					score: 9999, // Calculator results always float to top of snippets
 					action: async () => {
 						await writeText(mathResult);
 						showToast(`Copied result: ${mathResult}`);
@@ -508,15 +555,20 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 				});
 			}
 
-			const matchedSnippets = q
-				? builtInSnippets.filter(
-						(s) =>
-							s.title.toLowerCase().includes(q) ||
-							s.tag.toLowerCase().includes(q)
-				  )
-				: builtInSnippets;
+			const scoredSnippets = q
+				? builtInSnippets
+						.map((s) => {
+							const titleRes = fuzzyMatch(q, s.title);
+							const tagRes = fuzzyMatch(q, s.tag, s.launchPath);
+							const bestRes = titleRes.score >= tagRes.score ? titleRes : tagRes;
+							return { s, res: bestRes };
+						})
+						.filter(({ res }) => res.matches)
+						.sort((a, b) => b.res.score - a.res.score)
+						.map(({ s, res }) => ({ ...s, matchedIndices: res.matchedIndices, score: res.score }))
+				: builtInSnippets.map((s) => ({ ...s, matchedIndices: [], score: 0 }));
 
-			matchedSnippets.forEach((s) => {
+			scoredSnippets.forEach((s) => {
 				snippetItems.push({
 					id: s.id,
 					category: "snippet",
@@ -525,6 +577,8 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 					iconType: s.iconType,
 					copyValue: s.copyValue,
 					isPinned: pinnedIds.includes(s.id),
+					score: s.score,
+					matchedIndices: s.matchedIndices,
 					action: async () => {
 						if (s.copyValue) {
 							await writeText(s.copyValue);
@@ -725,6 +779,26 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 		}
 	};
 
+function HighlightedTitle({ title, matchedIndices }: { title: string; matchedIndices?: number[] }) {
+	if (!matchedIndices || matchedIndices.length === 0) {
+		return <span className="apps-item-title">{title}</span>;
+	}
+	const matchSet = new Set(matchedIndices);
+	return (
+		<span className="apps-item-title">
+			{title.split("").map((ch, idx) =>
+				matchSet.has(idx) ? (
+					<span key={idx} className="apps-match-highlight">
+						{ch}
+					</span>
+				) : (
+					ch
+				)
+			)}
+		</span>
+	);
+}
+
 	// Helper to render an item row without onMouseEnter state churn
 	const renderItemRow = (item: UnifiedItem) => {
 		const isSelected = flattenedItems[selectedIndex]?.id === item.id;
@@ -742,7 +816,7 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 			>
 				{renderItemIcon(item)}
 				<div className="apps-item-info">
-					<span className="apps-item-title">{item.title}</span>
+					<HighlightedTitle title={item.title} matchedIndices={item.matchedIndices} />
 					{item.subtitle && <span className="apps-item-subtitle">{item.subtitle}</span>}
 				</div>
 

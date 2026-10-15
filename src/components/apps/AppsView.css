@@ -299,6 +299,19 @@
 	letter-spacing: -0.1px;
 }
 
+.apps-match-highlight {
+	color: #60a5fa;
+	font-weight: 700;
+	text-decoration: underline;
+	text-decoration-color: rgba(96, 165, 250, 0.4);
+	text-underline-offset: 2px;
+}
+
+.apps-item.is-selected .apps-match-highlight {
+	color: #93c5fd;
+	text-decoration-color: rgba(147, 197, 253, 0.6);
+}
+
 .apps-item-subtitle {
 	font-size: 10px;
 	color: rgba(255, 255, 255, 0.38);
