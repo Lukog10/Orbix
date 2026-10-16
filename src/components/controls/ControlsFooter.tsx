@@ -93,7 +93,7 @@ export const ControlsFooter: React.FC<ControlsFooterProps> = React.memo(({
 						e.stopPropagation();
 						onRestartShell();
 					}}
-					title="Restart Zvuk Shell"
+					title="Restart Orbix"
 				>
 					<RotateCw size={13} />
 				</button>
@@ -105,7 +105,7 @@ export const ControlsFooter: React.FC<ControlsFooterProps> = React.memo(({
 						e.stopPropagation();
 						onOpenSettings();
 					}}
-					title="Zvuk Settings"
+					title="Orbix Settings"
 				>
 					<Settings size={13} />
 				</button>

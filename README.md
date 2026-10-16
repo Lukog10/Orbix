@@ -1,26 +1,21 @@
 <div align="center">
 
 <img 
-  src="https://github.com/user-attachments/assets/962887ec-636b-4e0f-90eb-0862c0feefca" 
-  width="72"
+  src="./public/orbix.png" 
+  width="96"
+  alt="Orbix Logo"
 />
 
-# Zvuk
+# Orbix
 
-> **Zvuk** is an open-source Windows desktop utility built with **Rust (Tauri v2)** and **React 19 / TypeScript**. It replaces the native Windows taskbar with a floating dock and adds a dynamic, spring-animated island notch to the top of your screen.
+> **Orbix** is an open-source Windows desktop utility built with **Rust (Tauri v2)** and **React 19 / TypeScript**. It replaces the native Windows taskbar with a floating dock and adds a dynamic, spring-animated island notch to the top of your screen.
 > 
 > Forked from **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)** under the **GPLv3** license. See [CREDITS.md](CREDITS.md) for full attribution.
 
 <br/>
 
-> [!NOTE]
-> ### ⏸️ Project Status: Development on Hold
-> Active feature development on Zvuk is currently on hold. The codebase is in a complete, stable, and verified working state with all documented features fully implemented and tested. Bug reports, community contributions, and pull requests remain welcome.
-
-<br/>
-
 <!-- HERO SHOWCASE — full-width cinematic shot or video -->
-<img width="1920" height="1080" alt="Zvuk Hero" src="https://github.com/user-attachments/assets/22041f25-a69e-457d-80d9-7dfbfbed2d29" />
+<img width="1920" height="1080" alt="Orbix Hero" src="https://github.com/user-attachments/assets/22041f25-a69e-457d-80d9-7dfbfbed2d29" />
 
 <video width="1920" height="1080" src="https://github.com/user-attachments/assets/fa7f949b-d9c3-4a92-b00d-e1132c0f3ff1">
 
@@ -28,7 +23,7 @@
 
 ---
 
-Zvuk makes your Windows desktop feel alive.
+Orbix makes your Windows desktop feel alive.
 
 Every transition is a physics simulation.  
 Every element responds to touch and hover.  
@@ -42,7 +37,7 @@ This wakes it up.
 ## 🏝️ The Island (Dynamic Notch)
 
 <p align="center">
-  <img width="430" height="70" alt="Zvuk Island" src="https://github.com/user-attachments/assets/0d723558-9df4-4214-b20e-4a1f97eb1f22" />
+  <img width="430" height="70" alt="Orbix Island" src="https://github.com/user-attachments/assets/0d723558-9df4-4214-b20e-4a1f97eb1f22" />
 </p>
 
 An adaptive notch at the top of your screen that expands, contracts, and shifts between modes as you work. Scroll on the header or swipe to switch sections.
@@ -62,7 +57,7 @@ An adaptive notch at the top of your screen that expands, contracts, and shifts 
 ## 🚀 The Dock
 
 <p align="center">
-  <img width="576" height="102" alt="Zvuk Dock" src="https://github.com/user-attachments/assets/96229f0e-1246-4baf-b8ad-3e8f77142a12" />
+  <img width="576" height="102" alt="Orbix Dock" src="https://github.com/user-attachments/assets/96229f0e-1246-4baf-b8ad-3e8f77142a12" />
 </p>
 
 A floating taskbar replacement that sits cleanly at the bottom of your screen:
@@ -86,7 +81,7 @@ A floating taskbar replacement that sits cleanly at the bottom of your screen:
 
 ## ⚙️ Architecture & Under the Hood
 
-Zvuk operates as a multi-webview Tauri v2 architecture designed for low overhead and maximum smoothness:
+Orbix operates as a multi-webview Tauri v2 architecture designed for low overhead and maximum smoothness:
 
 * **Rust Backend**:
   * Low-level Win32 hooks (`WH_MOUSE_LL`, `WH_KEYBOARD_LL`) for boundary hit-testing and hotkey intercepts.
@@ -107,7 +102,7 @@ Zvuk operates as a multi-webview Tauri v2 architecture designed for low overhead
 
 ## 🛡️ Microsoft Defender & Security
 
-Because Zvuk is an open-source tool that hooks into native Windows shell APIs (taskbar management, global hotkeys, audio capture), Windows Defender or SmartScreen may occasionally prompt a notification on initial download.
+Because Orbix is an open-source tool that hooks into native Windows shell APIs (taskbar management, global hotkeys, audio capture), Windows Defender or SmartScreen may occasionally prompt a notification on initial download.
 
 The application contains **no adware, telemetry, or malware**. You can inspect and build the entire codebase yourself from source.
 
@@ -164,7 +159,7 @@ cargo test --locked
 
 ## 📜 Credits & License
 
-Zvuk is built upon the foundation of **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)**.  
+Orbix is built upon the foundation of **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)**.  
 See [CREDITS.md](CREDITS.md) for detailed attribution and third-party dependency details.
 
 Licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
@@ -173,6 +168,6 @@ Licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
 
 <div align="center">
 
-**Zvuk — Windows desktop, refined.**
+**Orbix — Windows desktop, refined.**
 
 </div>

@@ -44,11 +44,11 @@ fn main() {
             CreateEventW, CreateMutexW, OpenEventW, SetEvent, SYNCHRONIZATION_ACCESS_RIGHTS,
         };
 
-        let mutex_name: Vec<u16> = "ZvukSingleInstance"
+        let mutex_name: Vec<u16> = "OrbixSingleInstance"
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
-        let event_name: Vec<u16> = "ZvukOpenSettings"
+        let event_name: Vec<u16> = "OrbixOpenSettings"
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();

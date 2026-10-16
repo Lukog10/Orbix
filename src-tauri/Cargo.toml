@@ -1,8 +1,8 @@
 [package]
 name = "zvuk"
 version = "3.9.2"
-description = "A Windows notch and dock application (fork of Bloom)"
-authors = ["Zvuk Contributors", "sehaz"]
+description = "Orbix — Dynamic island notch and floating dock for Windows"
+authors = ["Orbix Contributors", "Lukog10"]
 edition = "2021"
 license = "GPL-3.0-only"
 
