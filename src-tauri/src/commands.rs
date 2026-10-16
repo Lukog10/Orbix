@@ -3498,33 +3498,167 @@ pub fn open_battery_saver_settings() {
 
 static AIRPLANE_MODE_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+const CLSID_RADIO_MANAGEMENT_API: windows::core::GUID =
+    windows::core::GUID::from_u128(0x581333f6_28db_41be_bc7a_ff201f12f3f6);
+const IID_IRADIO_MANAGER: windows::core::GUID =
+    windows::core::GUID::from_u128(0xdb3afbfb_08e6_46c6_aa70_bf9a34c30ab7);
+
+fn get_system_radio_state_com() -> Option<bool> {
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let unknown: windows::core::IUnknown =
+            CoCreateInstance(&CLSID_RADIO_MANAGEMENT_API, None, CLSCTX_ALL).ok()?;
+        let mut radio_manager_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = (unknown.vtable().QueryInterface)(
+            windows::core::Interface::as_raw(&unknown),
+            &IID_IRADIO_MANAGER,
+            &mut radio_manager_ptr,
+        );
+        if hr.is_err() || radio_manager_ptr.is_null() {
+            return None;
+        }
+
+        let vtable_ptr = *(radio_manager_ptr as *mut *mut usize);
+        type GetSystemRadioStateFn = unsafe extern "system" fn(
+            *mut std::ffi::c_void,
+            *mut i32,
+            *mut i32,
+            *mut u32,
+        ) -> windows::core::HRESULT;
+        type ReleaseFn = unsafe extern "system" fn(*mut std::ffi::c_void) -> u32;
+
+        let get_state: GetSystemRadioStateFn = std::mem::transmute(*vtable_ptr.add(5));
+        let release: ReleaseFn = std::mem::transmute(*vtable_ptr.add(2));
+
+        let mut enabled: i32 = 0;
+        let mut unk1: i32 = 0;
+        let mut reason: u32 = 0;
+        let hr_call = get_state(radio_manager_ptr, &mut enabled, &mut unk1, &mut reason);
+        release(radio_manager_ptr);
+
+        if hr_call.is_ok() {
+            // enabled == 0: all radios off -> Airplane Mode is ON
+            // enabled == 1: radios on -> Airplane Mode is OFF
+            return Some(enabled == 0);
+        }
+    }
+    None
+}
+
+fn set_system_radio_state_com(airplane_mode: bool) -> Result<(), String> {
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let unknown: windows::core::IUnknown =
+            CoCreateInstance(&CLSID_RADIO_MANAGEMENT_API, None, CLSCTX_ALL)
+                .map_err(|e| format!("CoCreateInstance failed: {:?}", e))?;
+        let mut radio_manager_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let hr = (unknown.vtable().QueryInterface)(
+            windows::core::Interface::as_raw(&unknown),
+            &IID_IRADIO_MANAGER,
+            &mut radio_manager_ptr,
+        );
+        if hr.is_err() || radio_manager_ptr.is_null() {
+            return Err("QueryInterface for IRadioManager failed".to_string());
+        }
+
+        let vtable_ptr = *(radio_manager_ptr as *mut *mut usize);
+        type SetSystemRadioStateFn =
+            unsafe extern "system" fn(*mut std::ffi::c_void, i32) -> windows::core::HRESULT;
+        type ReleaseFn = unsafe extern "system" fn(*mut std::ffi::c_void) -> u32;
+
+        let set_state: SetSystemRadioStateFn = std::mem::transmute(*vtable_ptr.add(6));
+        let release: ReleaseFn = std::mem::transmute(*vtable_ptr.add(2));
+
+        // bEnabled: 0 = disable radios (Airplane mode ON), 1 = enable radios (Airplane mode OFF)
+        let b_enabled = if airplane_mode { 0 } else { 1 };
+        let hr_call = set_state(radio_manager_ptr, b_enabled);
+        release(radio_manager_ptr);
+
+        if hr_call.is_ok() {
+            Ok(())
+        } else {
+            Err(format!("SetSystemRadioState failed: {:?}", hr_call))
+        }
+    }
+}
+
+fn get_airplane_mode_registry() -> Option<bool> {
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_LOCAL_MACHINE, KEY_READ,
+    };
+    use windows::core::w;
+    unsafe {
+        let mut hkey = windows::Win32::System::Registry::HKEY::default();
+        if RegOpenKeyExW(
+            HKEY_LOCAL_MACHINE,
+            w!("SYSTEM\\CurrentControlSet\\Control\\RadioManagement\\SystemRadioState"),
+            None,
+            KEY_READ,
+            &mut hkey,
+        )
+        .is_ok()
+        {
+            let mut data: u32 = 0;
+            let mut size: u32 = std::mem::size_of::<u32>() as u32;
+            let res = RegQueryValueExW(
+                hkey,
+                windows::core::PCWSTR::null(),
+                None,
+                None,
+                Some(&mut data as *mut u32 as *mut u8),
+                Some(&mut size),
+            );
+            let _ = RegCloseKey(hkey);
+            if res.is_ok() {
+                return Some(data != 0);
+            }
+        }
+    }
+    None
+}
+
+fn get_airplane_mode_sync() -> bool {
+    if let Some(state) = get_system_radio_state_com() {
+        AIRPLANE_MODE_ENABLED.store(state, Ordering::Relaxed);
+        return state;
+    }
+    if let Some(state) = get_airplane_mode_registry() {
+        AIRPLANE_MODE_ENABLED.store(state, Ordering::Relaxed);
+        return state;
+    }
+    AIRPLANE_MODE_ENABLED.load(Ordering::Relaxed)
+}
+
 #[tauri::command]
 pub async fn get_airplane_mode_state() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let wifi = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi).unwrap_or(false);
-        let bt = get_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth).unwrap_or(false);
-        Ok(!wifi && !bt)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(get_airplane_mode_sync)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn toggle_airplane_mode() -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let current_state = {
-            let wifi = get_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi).unwrap_or(false);
-            let bt = get_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth).unwrap_or(false);
-            !wifi && !bt
-        };
+        let current_state = get_airplane_mode_sync();
         let target_airplane = !current_state;
+
+        // Use native RadioManagement API
+        let _ = set_system_radio_state_com(target_airplane);
+
+        // Also ensure individual hardware radios follow immediately
         if target_airplane {
             let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi, false);
             let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth, false);
         } else {
             let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::WiFi, true);
-            let _ = set_radio_state_sync(windows::Devices::Radios::RadioKind::Bluetooth, true);
         }
+
         AIRPLANE_MODE_ENABLED.store(target_airplane, Ordering::Relaxed);
         Ok(target_airplane)
     })

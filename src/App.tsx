@@ -417,6 +417,19 @@ const TitleMarquee = ({ title }: { title: string }) => {
 	);
 };
 
+const isTextInputActive = () => {
+	const el = document.activeElement;
+	if (!el || el === document.body) return false;
+	const tag = el.tagName?.toLowerCase();
+	if (tag === "input") {
+		const type = (el as HTMLInputElement).type?.toLowerCase();
+		return type === "text" || type === "search" || type === "password" || type === "email";
+	}
+	if (tag === "textarea") return true;
+	if (el instanceof HTMLElement && el.isContentEditable) return true;
+	return false;
+};
+
 function App() {
 	useEffect(() => {
 		return initTheme("notch");
@@ -1047,7 +1060,7 @@ function App() {
 			if (
 				bloomRef.current &&
 				bloomRef.current.contains(document.activeElement) &&
-				document.activeElement !== document.body
+				isTextInputActive()
 			) {
 				return;
 			}
@@ -1151,6 +1164,13 @@ function App() {
 	// Bloom mode state: 'music', 'calendar', 'command-center', 'announcement', 'shelf', or 'status'
 	const [ccSubView, setCcSubView] = useState<SubViewMode>("main");
 	const [bloomMode, setBloomMode] = useState<BloomMode>("status");
+
+	useEffect(() => {
+		if (bloomMode !== "command-center") return;
+		invoke<boolean>("get_airplane_mode_state").then(setAirplaneModeActive).catch(() => {});
+		invoke<boolean>("get_mobile_hotspot_state").then(setHotspotActive).catch(() => {});
+		invoke<boolean>("get_dnd_state").then(setDndActive).catch(() => {});
+	}, [bloomMode]);
 
 	// Shelf: files and selected text stashed in the notch via drag-and-drop.
 	// Files are stored as plain paths (references, never copies). Session-scoped
@@ -1382,7 +1402,7 @@ function App() {
 		if (
 			bloomRef.current &&
 			bloomRef.current.contains(document.activeElement) &&
-			document.activeElement !== document.body
+			isTextInputActive()
 		) {
 			return;
 		}
@@ -1417,7 +1437,7 @@ function App() {
 				if (
 					bloomRef.current &&
 					bloomRef.current.contains(document.activeElement) &&
-					document.activeElement !== document.body
+					isTextInputActive()
 				) {
 					return;
 				}
@@ -3284,10 +3304,13 @@ function App() {
 											onToggleNotchMode={toggleNotchModeSetting}
 											airplaneMode={airplaneModeActive}
 											onToggleAirplane={async () => {
+												const next = !airplaneModeActive;
+												setAirplaneModeActive(next);
 												try {
 													const s = await invoke<boolean>("toggle_airplane_mode");
 													setAirplaneModeActive(s);
 												} catch (err) {
+													setAirplaneModeActive(!next);
 													console.error(err);
 												}
 											}}
