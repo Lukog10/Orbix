@@ -1377,7 +1377,7 @@ function App() {
 	const shelfCollapseTimer = useRef<number | null>(null);
 	const shelfRestingModeRef = useRef<BloomMode>("status");
 	shelfRestingModeRef.current =
-		mediaInfo.has_media && isPlaying && settingsMusicModeEnabled && settingsMusicCompactNotch
+		mediaInfo.has_media && settingsMusicModeEnabled && settingsMusicCompactNotch
 			? "music"
 			: "status";
 
@@ -1660,9 +1660,9 @@ function App() {
 	// Leave the announcement view once it is dismissed (or gone).
 	useEffect(() => {
 		if (bloomMode === "announcement" && (!announcement || announcementDismissed)) {
-			setBloomMode(mediaInfo.has_media && isPlaying ? "music" : "status");
+			setBloomMode(mediaInfo.has_media && settingsMusicModeEnabled ? "music" : "status");
 		}
-	}, [bloomMode, announcement, announcementDismissed, mediaInfo.has_media, isPlaying]);
+	}, [bloomMode, announcement, announcementDismissed, mediaInfo.has_media, settingsMusicModeEnabled]);
 
 	// Window height is now kept constant to prevent rendering layout lag and sharp corners
 
@@ -1709,8 +1709,8 @@ function App() {
 	};
 
 	const getCyclableModes = () => {
-		// When media is active, music comes first, followed by controls, calendar, apps, shelf, wallpaper, power
-		const hasActiveMedia = mediaInfo.has_media && settingsMusicModeEnabled && (isPlaying || bloomMode === "music");
+		// When media is active or open, music comes first, followed by controls, calendar, apps, shelf, wallpaper, power
+		const hasActiveMedia = mediaInfo.has_media && settingsMusicModeEnabled;
 		const modes: BloomMode[] = hasActiveMedia
 			? ["music", "command-center", "calendar", "apps", "shelf", "wallpaper", "power"]
 			: ["status", "command-center", "calendar", "apps", "shelf", "wallpaper", "power"];
@@ -1905,14 +1905,14 @@ function App() {
 	const lastPlayingRef = useRef<boolean>(false);
 	const manualMusicRef = useRef<boolean>(false);
 
-	// Auto-switch to music mode only when a *new* track starts while playing,
+	// Auto-switch to music mode when a new track starts or media becomes active,
 	// or when playback transitions from paused to playing.
 	useEffect(() => {
-		const isNewTrackWhilePlaying = mediaInfo.title !== lastTrackRef.current && isPlaying;
+		const isNewTrack = mediaInfo.title !== lastTrackRef.current && mediaInfo.title.trim() !== "";
 		const justStartedPlaying = isPlaying && !lastPlayingRef.current;
 
 		// Peek notch on media events (play start or track change)
-		if (notchMode === "peek" && (isNewTrackWhilePlaying || justStartedPlaying)) {
+		if (notchMode === "peek" && (isNewTrack || justStartedPlaying)) {
 			triggerEventPeek(3000);
 		}
 
@@ -1920,10 +1920,9 @@ function App() {
 		if (
 			settingsMusicModeEnabled &&
 			mediaInfo.has_media &&
-			isPlaying &&
 			bloomMode !== "calendar" &&
 			!announcementOpenRef.current &&
-			(isNewTrackWhilePlaying || justStartedPlaying)
+			(isNewTrack || justStartedPlaying)
 		) {
 			// Switch if compact notch display is enabled OR we are hovered
 			if (settingsMusicCompactNotch || isHovered) {
@@ -1946,22 +1945,13 @@ function App() {
 		triggerEventPeek
 	]);
 
-	// Auto-switch back from music if music stops or media is closed
+	// Auto-switch back from music only when media application is closed or has no media
 	useEffect(() => {
 		if (!mediaInfo.has_media && bloomMode === "music") {
 			manualMusicRef.current = false;
 			setBloomMode("status");
-			return;
 		}
-		let timer: any;
-		if (!isPlaying && bloomMode === "music") {
-			timer = setTimeout(() => {
-				manualMusicRef.current = false;
-				setBloomMode("status");
-			}, 1000);
-		}
-		return () => clearTimeout(timer);
-	}, [isPlaying, mediaInfo.has_media, bloomMode]);
+	}, [mediaInfo.has_media, bloomMode]);
 
 	// Reset bloom mode when calendar setting is disabled
 	useEffect(() => {
@@ -2006,13 +1996,12 @@ function App() {
 		}
 	}, [settingsMusicCompactNotch, bloomMode, isHovered]);
 
-	// Synchronize bloom mode immediately when music settings are toggled and music is playing
+	// Synchronize bloom mode immediately when music settings are toggled and media is available
 	useEffect(() => {
 		if (
 			settingsMusicModeEnabled &&
 			settingsMusicCompactNotch &&
 			mediaInfo.has_media &&
-			isPlaying &&
 			bloomMode === "status" &&
 			!announcementOpenRef.current &&
 			!isHovered
@@ -2023,7 +2012,6 @@ function App() {
 		settingsMusicModeEnabled,
 		settingsMusicCompactNotch,
 		mediaInfo.has_media,
-		isPlaying,
 		bloomMode,
 		isHovered
 	]);
@@ -2443,8 +2431,8 @@ function App() {
 
 		setBloomMode((prev) => {
 			if (prev === "calendar") {
-				// Return to music mode if media is present and playing and music mode is enabled, otherwise status
-				return settingsMusicModeEnabled && mediaInfo.has_media && isPlaying ? "music" : "status";
+				// Return to music mode if media is present and music mode is enabled, otherwise status
+				return settingsMusicModeEnabled && mediaInfo.has_media ? "music" : "status";
 			}
 			return "calendar";
 		});
@@ -2745,7 +2733,7 @@ function App() {
 							bloomMode !== "command-center" &&
 							bloomMode !== "calendar"
 						) {
-							setBloomMode(mediaInfo.has_media && isPlaying ? "music" : "status");
+							setBloomMode(mediaInfo.has_media && settingsMusicModeEnabled ? "music" : "status");
 						}
 					}}
 					onHoverEnd={() => {
