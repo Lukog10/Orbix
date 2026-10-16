@@ -73,14 +73,13 @@ export function AboutTab({
 				<h1 className="about-title">Orbix</h1>
 				<p className="about-version">Version {appVersion}</p>
 				<p className="about-credit">
-					Based on{" "}
 					<button
 						className="about-author"
-						onClick={() => openUrl("https://github.com/SehajveerSingh2005/bloom")}
-						title="Bloom on GitHub"
+						onClick={() => openUrl("https://github.com/Lukog10/Zvuk-Shell")}
+						title="Orbix on GitHub"
 					>
 						<GithubIcon size={12} />
-						<span>Bloom by Sehajveer Singh</span>
+						<span>Lukog10/Zvuk-Shell</span>
 					</button>
 				</p>
 			</div>
