@@ -909,7 +909,7 @@ function OverlayApp() {
 						transition={{ duration: 0.3 }}
 					>
 						<motion.img
-							src="/bloom.png"
+							src="/orbix.png"
 							className="splash-logo"
 							draggable={false}
 							initial={{ scale: 0, opacity: 0, rotate: 0 }}
@@ -939,7 +939,7 @@ function OverlayApp() {
 						exit={{ opacity: 0 }}
 						transition={{ duration: 0.3 }}
 					>
-						<img src="/bloom.png" className="update-splash-logo" alt="Bloom" />
+						<img src="/orbix.png" className="update-splash-logo" alt="Orbix" />
 						<p className="update-splash-text">
 							{updateStatus === "checking" && "Checking for updates..."}
 							{updateStatus === "downloading" && `Downloading update... ${updateProgress}%`}

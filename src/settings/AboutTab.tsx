@@ -37,7 +37,7 @@ export function AboutTab({
 			case "available":
 				return `Update Available (v${updateVersion})`;
 			case "uptodate":
-				return "Zvuk is up to date";
+				return "Orbix is up to date";
 			case "downloading":
 				return "Downloading Update...";
 			case "installing":
@@ -69,8 +69,8 @@ export function AboutTab({
 	return (
 		<div className="about-tab-container">
 			<div className="about-header">
-				<img src="/bloom.png" className="about-logo" alt="Zvuk Logo" draggable={false} />
-				<h1 className="about-title">Zvuk</h1>
+				<img src="/orbix.png" className="about-logo" alt="Orbix Logo" draggable={false} />
+				<h1 className="about-title">Orbix</h1>
 				<p className="about-version">Version {appVersion}</p>
 				<p className="about-credit">
 					Based on{" "}

@@ -2460,28 +2460,28 @@ fn update_main_interaction(
     let mut in_notch_rect = false;
     let mut in_top_span = false;
 
-    if let Ok(guard) = MAIN_WINDOW_RECT.try_lock() {
+    if let Ok(guard) = MAIN_WINDOW_RECT.lock() {
         if let Some((win_pos, _)) = *guard {
-            if let Ok(region) = NOTCH_RECT.try_lock() {
+            if let Ok(region) = NOTCH_RECT.lock() {
                 if let Some(r) = *region {
-                    let pad_x = (25.0 * scale) as i32;
-                    let pad_y_bottom = (25.0 * scale) as i32;
+                    let pad_x = (35.0 * scale) as i32;
+                    let pad_y_bottom = (35.0 * scale) as i32;
                     // Hysteresis keeps the notch interactive a little past its
                     // bounds once grabbed, so removing the edge-forced
                     // interactivity doesn't reintroduce boundary flicker.
                     let hyst = if MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 0 {
-                        (15.0 * scale) as i32
+                        (20.0 * scale) as i32
                     } else {
                         0
                     };
                     let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
                     let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
-                    let ry_top = win_pos.y;
-                    let ry_bottom = win_pos.y + (r.height as f64 * scale) as i32 + pad_y_bottom + hyst;
+                    let ry_top = (win_pos.y + (r.y as f64 * scale) as i32 - hyst).min(win_pos.y);
+                    let ry_bottom = win_pos.y + ((r.y + r.height) as f64 * scale) as i32 + pad_y_bottom + hyst;
 
                     in_notch_rect = cursor.x >= rx
                         && cursor.x <= (rx + rw)
-                        && cursor.y >= ry_top
+                        && cursor.y >= (ry_top - 5)
                         && cursor.y <= ry_bottom;
 
                     // Approaching along the top edge keeps the window interactive
@@ -2500,10 +2500,10 @@ fn update_main_interaction(
         }
     }
 
-    // Refresh expiry ONLY when cursor is actually within the notch bounds, top span, or edge armed.
-    // Never refresh expiry just because in_notch_hover was true in the past.
-    if in_notch_rect || in_top_span || edge_armed {
-        MH_TOPBAR_EXPIRY_MS.store(now + 250, Ordering::Relaxed);
+    // Refresh expiry when cursor is within notch bounds, top span, edge armed, or while notch hover is active in frontend
+    let is_hover_active = NOTCH_IS_HOVERED.load(Ordering::Relaxed);
+    if in_notch_rect || in_top_span || edge_armed || (is_hover_active && in_notch_rect) {
+        MH_TOPBAR_EXPIRY_MS.store(now + 600, Ordering::Relaxed);
     }
 
     let expiry = MH_TOPBAR_EXPIRY_MS.load(Ordering::Relaxed);
@@ -3617,7 +3617,14 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
             }
 
             // Filter out system containers and background stuff
-            if title == "Program Manager" || title == "Bloom" || title == "Bloom Dock" {
+            if title == "Program Manager"
+                || title == "Bloom"
+                || title == "Bloom Dock"
+                || title == "Zvuk"
+                || title == "Zvuk Dock"
+                || title == "Orbix"
+                || title == "Orbix Dock"
+            {
                 return true.into();
             }
 
@@ -3656,9 +3663,12 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
                         || window_class == "ExploreWClass"
                         || (window_class == "#32770" && dialog_has_tab_control(hwnd));
 
-                    // Filter out Zvuk/Bloom itself (except the Settings window) and some common background processes
-                    if ((lowercase_path.contains("zvuk.exe") || lowercase_path.contains("bloom.exe"))
+                    // Filter out Orbix/Zvuk/Bloom itself (except the Settings window) and some common background processes
+                    if ((lowercase_path.contains("orbix.exe")
+                        || lowercase_path.contains("zvuk.exe")
+                        || lowercase_path.contains("bloom.exe"))
                         && title != "Settings"
+                        && title != "Orbix Settings"
                         && title != "Zvuk Settings")
                         || lowercase_path.contains("conhost.exe")
                         || (lowercase_path.contains("explorer.exe") && !is_explorer_window)

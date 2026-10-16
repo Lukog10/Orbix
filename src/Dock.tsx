@@ -82,12 +82,9 @@ const isIdentifier = (p: string) => !p.includes("/") && !p.includes("\\");
 // Resolve the configured start-button icon to a public asset, or to the data
 // URI of a user-uploaded icon (stored with a "custom:" prefix).
 function resolveStartIcon(startIcon: string): string {
-	if (startIcon === "bloom-colorful") return "/bloom-colorful.png";
-	if (startIcon === "bloom-golden") return "/bloom-golden.png";
-	if (startIcon === "bloom-biscuit") return "/bloom-biscuit.png";
 	if (startIcon === "windows") return "/windows.png";
 	if (startIcon.startsWith("custom:")) return startIcon.slice("custom:".length);
-	return "/bloom.png";
+	return "/orbix.png";
 }
 
 // Stable module-level constants so object references never change between renders,

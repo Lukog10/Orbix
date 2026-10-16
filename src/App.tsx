@@ -1041,6 +1041,16 @@ function App() {
 		// the webview still thinks the pointer is inside the notch (it cannot
 		// receive the mouseleave once the window is click-through).
 		const unlistenNotchPointerLeft = listen("notch-pointer-left", () => {
+			if (bloomRef.current?.matches(":hover")) {
+				return;
+			}
+			if (
+				bloomRef.current &&
+				bloomRef.current.contains(document.activeElement) &&
+				document.activeElement !== document.body
+			) {
+				return;
+			}
 			releaseNotchHoverRef.current();
 		});
 
@@ -1365,6 +1375,17 @@ function App() {
 
 	const releaseNotchHover = useCallback(() => {
 		cancelNotchClose();
+		// If pointer is still physically inside the notch, or an inner element has focus, do not close!
+		if (bloomRef.current?.matches(":hover")) {
+			return;
+		}
+		if (
+			bloomRef.current &&
+			bloomRef.current.contains(document.activeElement) &&
+			document.activeElement !== document.body
+		) {
+			return;
+		}
 		if (document.activeElement instanceof HTMLElement) {
 			document.activeElement.blur();
 		}
@@ -1386,10 +1407,20 @@ function App() {
 	}, [cancelNotchClose]);
 
 	const scheduleNotchClose = useCallback(
-		(delay = 150) => {
+		(delay = 250) => {
 			cancelNotchClose();
 			notchCloseTimerRef.current = window.setTimeout(() => {
 				notchCloseTimerRef.current = null;
+				if (bloomRef.current?.matches(":hover")) {
+					return;
+				}
+				if (
+					bloomRef.current &&
+					bloomRef.current.contains(document.activeElement) &&
+					document.activeElement !== document.body
+				) {
+					return;
+				}
 				releaseNotchHover();
 			}, delay);
 		},
@@ -2628,7 +2659,7 @@ function App() {
 						setIsNotchHovered(true);
 					}}
 					onMouseLeave={() => {
-						scheduleNotchClose(150);
+						scheduleNotchClose(250);
 					}}
 					onPointerEnter={() => {
 						cancelNotchClose();
@@ -2698,7 +2729,7 @@ function App() {
 						}
 					}}
 					onHoverEnd={() => {
-						scheduleNotchClose(150);
+						scheduleNotchClose(250);
 					}}
 					style={{ originY: 0 }}
 					transition={{
@@ -2835,30 +2866,8 @@ function App() {
 															animate={{ opacity: 1 }}
 															exit={{ opacity: 0 }}
 														>
-															{/* Left: passive indicators or status widgets */}
+															{/* Left: status widgets when hovered */}
 															<div className="side-content left">
-																{notchAudioIndicator && audioDevices.headphone_connected && !isHovered && (
-																	<motion.div
-																		className="passive-feature"
-																		style={{ padding: "0 2px" }}
-																		title={`Headphones: ${audioDevices.headphone_name || "Connected"}`}
-																		initial={{ opacity: 0, scale: 0.8 }}
-																		animate={{ opacity: 1, scale: 1 }}
-																	>
-																		<Headphones size={12} strokeWidth={2.2} style={{ color: "#38bdf8" }} />
-																	</motion.div>
-																)}
-																{notchAudioIndicator && audioDevices.mic_connected && !isHovered && (
-																	<motion.div
-																		className="passive-feature"
-																		style={{ padding: "0 2px" }}
-																		title={`Microphone: ${audioDevices.mic_name || "Connected"}`}
-																		initial={{ opacity: 0, scale: 0.8 }}
-																		animate={{ opacity: 1, scale: 1 }}
-																	>
-																		<Mic size={12} strokeWidth={2.2} style={{ color: "#a78bfa" }} />
-																	</motion.div>
-																)}
 																{isHovered && statusWidgets.left.length > 0 ? (
 																	<motion.div
 																		key="left-widgets"

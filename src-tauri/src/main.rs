@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
 mod dock_extras;
@@ -397,16 +397,16 @@ fn main() {
             {
                 use tauri::menu::{Menu, MenuItem};
                 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-                let quit_item = MenuItem::with_id(app, "quit", "Quit Zvuk", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "quit", "Quit Orbix", true, None::<&str>)?;
                 let restart_item =
-                    MenuItem::with_id(app, "restart", "Restart Zvuk", true, None::<&str>)?;
+                    MenuItem::with_id(app, "restart", "Restart Orbix", true, None::<&str>)?;
                 let settings_item =
                     MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&settings_item, &restart_item, &quit_item])?;
                 let ah = app.handle().clone();
                 TrayIconBuilder::new()
                     .icon(app.default_window_icon().unwrap().clone())
-                    .tooltip("Zvuk")
+                    .tooltip("Orbix")
                     .menu(&menu)
                     .on_menu_event(move |_, event| match event.id().as_ref() {
                         "quit" => {

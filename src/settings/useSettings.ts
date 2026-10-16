@@ -889,9 +889,9 @@ export function useSettings() {
 		try {
 			const { ask } = await import("@tauri-apps/plugin-dialog");
 			const confirmed = await ask(
-				"All settings return to their defaults and Bloom restarts. Pinned apps and custom icons are kept.",
+				"All settings return to their defaults and Orbix restarts. Pinned apps and custom icons are kept.",
 				{
-					title: "Reset Bloom to Defaults",
+					title: "Reset Orbix to Defaults",
 					kind: "warning",
 					okLabel: "Reset and Restart",
 					cancelLabel: "Cancel"
@@ -924,8 +924,8 @@ export function useSettings() {
 			const { save: saveDialog } = await import("@tauri-apps/plugin-dialog");
 			const settingsJson = await invoke<string>("export_settings");
 			const filePath = await saveDialog({
-				title: "Export Bloom Settings",
-				defaultPath: "bloom-settings.json",
+				title: "Export Orbix Settings",
+				defaultPath: "orbix-settings.json",
 				filters: [{ name: "JSON", extensions: ["json"] }]
 			});
 			if (filePath) {
@@ -947,7 +947,7 @@ export function useSettings() {
 		try {
 			const { open: openDialog } = await import("@tauri-apps/plugin-dialog");
 			const filePath = await openDialog({
-				title: "Import Bloom Settings",
+				title: "Import Orbix Settings",
 				filters: [{ name: "JSON", extensions: ["json"] }],
 				multiple: false
 			});
