@@ -314,8 +314,8 @@ export function useSettings() {
 			.catch(() => {});
 
 		getVersion()
-			.then((ver) => setAppVersion(ver || "3.1.2"))
-			.catch(() => setAppVersion("3.1.2"));
+			.then((ver) => setAppVersion(ver || "0.1.0"))
+			.catch(() => setAppVersion("0.1.0"));
 
 		checkForUpdates(false);
 	}, []);

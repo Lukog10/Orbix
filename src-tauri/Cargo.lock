@@ -3178,6 +3178,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "orbix"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "image",
+ "rustfft",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-drag",
+ "tauri-plugin-opener",
+ "tauri-plugin-updater",
+ "tokio",
+ "webview2-com",
+ "window-vibrancy 0.7.1",
+ "windows 0.61.3",
+ "windows-core 0.61.2",
+ "wmi",
+]
+
+[[package]]
 name = "ordered-stream"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7343,29 +7368,4 @@ dependencies = [
  "serde",
  "syn 2.0.117",
  "winnow 0.7.15",
-]
-
-[[package]]
-name = "zvuk"
-version = "3.9.2"
-dependencies = [
- "base64 0.22.1",
- "image",
- "rustfft",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-drag",
- "tauri-plugin-opener",
- "tauri-plugin-updater",
- "tokio",
- "webview2-com",
- "window-vibrancy 0.7.1",
- "windows 0.61.3",
- "windows-core 0.61.2",
- "wmi",
 ]

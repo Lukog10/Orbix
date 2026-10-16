@@ -52,7 +52,7 @@ export function AboutTab({
 	const getUpdateDesc = () =>
 		updateStatus === "available"
 			? "Click to install and restart"
-			: `Currently running v${appVersion}`;
+			: `Currently running v${appVersion || "0.1.0"} (Beta)`;
 
 	const getExportLabel = () => {
 		if (exportStatus === "exporting") return "Exporting...";
@@ -71,7 +71,7 @@ export function AboutTab({
 			<div className="about-header">
 				<img src="/orbix.png" className="about-logo" alt="Orbix Logo" draggable={false} />
 				<h1 className="about-title">Orbix</h1>
-				<p className="about-version">Version {appVersion}</p>
+				<p className="about-version">Version {appVersion || "0.1.0"} (Beta)</p>
 				<p className="about-credit">
 					<button
 						className="about-author"
