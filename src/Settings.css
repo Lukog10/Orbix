@@ -862,38 +862,22 @@ input:checked + .slider:before {
 }
 
 .about-logo {
-	width: 68px;
-	height: 68px;
+	width: 72px;
+	height: 72px;
 	margin-bottom: 14px;
 	user-drag: none;
 	-webkit-user-drag: none;
-	border-radius: 16px;
-	overflow: hidden;
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-	will-change: transform;
+	object-fit: contain;
+	filter: drop-shadow(0 4px 16px rgba(107, 82, 144, 0.35));
+	will-change: transform, filter;
 	transition:
 		transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-		box-shadow 0.2s ease;
+		filter 0.3s ease;
 }
 
 .about-logo:hover {
 	transform: rotate(360deg);
-}
-
-.about-logo-light {
-	display: none;
-}
-
-.about-logo-dark {
-	display: block;
-}
-
-.light-mode .about-logo-light {
-	display: block;
-}
-
-.light-mode .about-logo-dark {
-	display: none;
+	filter: drop-shadow(0 6px 22px rgba(107, 82, 144, 0.55));
 }
 
 .about-title {
