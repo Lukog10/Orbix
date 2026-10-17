@@ -17,9 +17,14 @@ interface WallpaperViewProps {
 const PREVIEW_WIDTH = 90;
 const CARD_GAP = 12;
 
+// In-memory module cache so wallpapers render immediately with no flicker on reopen
+const wallpaperThumbnailMemoryCache: Record<string, string | null> = {};
+
 export function WallpaperView({ onClose }: WallpaperViewProps) {
 	const [wallpapers, setWallpapers] = useState<WallpaperItem[]>([]);
-	const [thumbnails, setThumbnails] = useState<Record<string, string | null>>({});
+	const [thumbnails, setThumbnails] = useState<Record<string, string | null>>(
+		() => ({ ...wallpaperThumbnailMemoryCache })
+	);
 	const [currentWallpaper, setCurrentWallpaper] = useState<string>("");
 	const [activeFolder, setActiveFolder] = useState<string>(() => {
 		return localStorage.getItem("bloom-wallpaper-folder") || "";
@@ -53,14 +58,19 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 				}
 			}
 
-			// Load thumbnails progressively
+			// Load thumbnails progressively with in-memory caching
 			list.forEach(async (item) => {
+				if (wallpaperThumbnailMemoryCache[item.path]) {
+					return;
+				}
 				try {
 					const thumb = await invoke<string | null>("wallpaper_thumbnail", {
 						path: item.path
 					});
+					wallpaperThumbnailMemoryCache[item.path] = thumb;
 					setThumbnails((prev) => ({ ...prev, [item.path]: thumb }));
 				} catch {
+					wallpaperThumbnailMemoryCache[item.path] = null;
 					setThumbnails((prev) => ({ ...prev, [item.path]: null }));
 				}
 			});
@@ -279,16 +289,6 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 										<div className="wallpaper-applying-badge">
 											<Sparkles size={12} strokeWidth={2.5} />
 											<span>Applied</span>
-										</div>
-									)}
-
-									{/* Hero Bottom Info Overlay */}
-									{isHero && !isItemApplying && (
-										<div className="wallpaper-hero-overlay">
-											<span className="wallpaper-hero-title">{item.name}</span>
-											<span className="wallpaper-hero-hint">
-												{isCurrent ? "Active Wallpaper" : "Click to Apply"}
-											</span>
 										</div>
 									)}
 								</div>

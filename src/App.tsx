@@ -417,19 +417,6 @@ const TitleMarquee = ({ title }: { title: string }) => {
 	);
 };
 
-const isTextInputActive = () => {
-	const el = document.activeElement;
-	if (!el || el === document.body) return false;
-	const tag = el.tagName?.toLowerCase();
-	if (tag === "input") {
-		const type = (el as HTMLInputElement).type?.toLowerCase();
-		return type === "text" || type === "search" || type === "password" || type === "email";
-	}
-	if (tag === "textarea") return true;
-	if (el instanceof HTMLElement && el.isContentEditable) return true;
-	return false;
-};
-
 function App() {
 	useEffect(() => {
 		return initTheme("notch");
@@ -1059,13 +1046,6 @@ function App() {
 			if (bloomRef.current?.matches(":hover")) {
 				return;
 			}
-			if (
-				bloomRef.current &&
-				bloomRef.current.contains(document.activeElement) &&
-				isTextInputActive()
-			) {
-				return;
-			}
 			releaseNotchHoverRef.current();
 		});
 
@@ -1401,13 +1381,6 @@ function App() {
 		if (bloomRef.current?.matches(":hover")) {
 			return;
 		}
-		if (
-			bloomRef.current &&
-			bloomRef.current.contains(document.activeElement) &&
-			isTextInputActive()
-		) {
-			return;
-		}
 		if (document.activeElement instanceof HTMLElement) {
 			document.activeElement.blur();
 		}
@@ -1434,13 +1407,6 @@ function App() {
 			notchCloseTimerRef.current = window.setTimeout(() => {
 				notchCloseTimerRef.current = null;
 				if (bloomRef.current?.matches(":hover")) {
-					return;
-				}
-				if (
-					bloomRef.current &&
-					bloomRef.current.contains(document.activeElement) &&
-					isTextInputActive()
-				) {
 					return;
 				}
 				releaseNotchHover();

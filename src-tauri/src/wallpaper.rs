@@ -157,8 +157,18 @@ fn collect_images_from_dir(
     }
 }
 
+static WALLPAPER_CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, String>>> =
+    std::sync::OnceLock::new();
+
 #[tauri::command]
 pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
+    let cache = WALLPAPER_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    if let Ok(guard) = cache.lock() {
+        if let Some(cached) = guard.get(&path) {
+            return Some(cached.clone());
+        }
+    }
+
     let p = Path::new(&path);
     let ext = p.extension()?.to_str()?.to_ascii_lowercase();
     if !matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "webp" | "bmp") {
@@ -181,18 +191,33 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
         .ok()?;
     reader.limits(limits);
     let img = reader.decode().ok()?;
-    let thumb = img.thumbnail(240, 150);
+    // High-resolution 1600x900 thumbnail preserves crisp original quality on all displays
+    let thumb = img.thumbnail(1600, 900);
 
-    let mut png_bytes: Vec<u8> = Vec::new();
-    thumb
-        .write_to(
-            &mut std::io::Cursor::new(&mut png_bytes),
-            image::ImageFormat::Png,
-        )
-        .ok()?;
+    let result_data_url = if img.color().has_alpha() {
+        let mut png_bytes: Vec<u8> = Vec::new();
+        thumb
+            .write_to(
+                &mut std::io::Cursor::new(&mut png_bytes),
+                image::ImageFormat::Png,
+            )
+            .ok()?;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
+        format!("data:image/png;base64,{}", b64)
+    } else {
+        let mut jpeg_bytes: Vec<u8> = Vec::new();
+        let rgb = thumb.to_rgb8();
+        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 92);
+        encoder.encode_image(&rgb).ok()?;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
+        format!("data:image/jpeg;base64,{}", b64)
+    };
 
-    let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
-    Some(format!("data:image/png;base64,{}", b64))
+    if let Ok(mut guard) = cache.lock() {
+        guard.insert(path, result_data_url.clone());
+    }
+
+    Some(result_data_url)
 }
 
 #[tauri::command]
