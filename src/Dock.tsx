@@ -508,7 +508,7 @@ const Dock = memo(function Dock() {
 		});
 
 		// Safety net: even if a window event is missed, converge on the real state
-		const interval = setInterval(poll, 10000);
+		const interval = setInterval(poll, 2000);
 
 		return () => {
 			stopped = true;

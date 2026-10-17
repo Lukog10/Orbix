@@ -307,7 +307,7 @@ pub fn setup_window_change_hook(app_handle: AppHandle) {
         );
 
         // Store hooks to prevent them from being dropped
-        Box::leak(Box::new(_create_hook));
+        Box::leak(Box::new((_create_hook, _destroy_hook, _show_hook, _hide_hook)));
     }
 }
 
@@ -324,42 +324,57 @@ unsafe extern "system" fn window_change_event_proc(
         return;
     }
 
-    // A top-level window appeared/disappeared (or focus moved): capture UI
-    // state may have changed. Cheap flag; the worker thread does the scan.
-    {
-        use windows::Win32::UI::WindowsAndMessaging::{
-            EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW,
-        };
-        if id_object == 0
-            && id_child == 0
-            && (event == EVENT_OBJECT_SHOW
-                || event == EVENT_OBJECT_HIDE
-                || event == EVENT_OBJECT_DESTROY)
-        {
-            CAPTURE_RECHECK.store(true, Ordering::Relaxed);
-        }
+    // Only top-level window objects (OBJID_WINDOW = 0, CHILDID_SELF = 0)
+    if id_object != 0 || id_child != 0 {
+        return;
     }
 
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongW, GetWindowThreadProcessId, IsWindow, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
+        EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW,
     };
 
-    if !IsWindow(Some(hwnd)).as_bool() {
-        return;
+    // A top-level window appeared/disappeared (or focus moved): capture UI
+    // state may have changed. Cheap flag; the worker thread does the scan.
+    if event == EVENT_OBJECT_SHOW
+        || event == EVENT_OBJECT_HIDE
+        || event == EVENT_OBJECT_DESTROY
+    {
+        CAPTURE_RECHECK.store(true, Ordering::Relaxed);
     }
 
-    // Skip tool windows (docks, trays, etc.)
-    let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
-    if (ex_style & WS_EX_TOOLWINDOW.0) != 0 {
-        return;
-    }
+    let is_destroy_or_hide = event == EVENT_OBJECT_DESTROY || event == EVENT_OBJECT_HIDE;
 
-    // Skip our own process
-    let my_pid = std::process::id();
-    let mut pid = 0u32;
-    GetWindowThreadProcessId(hwnd, Some(&mut pid));
-    if pid == my_pid {
-        return;
+    if !is_destroy_or_hide {
+        if !IsWindow(Some(hwnd)).as_bool() {
+            return;
+        }
+
+        // Skip tool windows (docks, trays, etc.)
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+        if (ex_style & WS_EX_TOOLWINDOW.0) != 0 {
+            return;
+        }
+
+        // Skip our own process
+        let my_pid = std::process::id();
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == my_pid {
+            return;
+        }
+    } else if IsWindow(Some(hwnd)).as_bool() {
+        // If window handle is still queryable during hide/destroy, skip our own process
+        let my_pid = std::process::id();
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == my_pid {
+            return;
+        }
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+        if (ex_style & WS_EX_TOOLWINDOW.0) != 0 {
+            return;
+        }
     }
 
     // Debounce bursts: closing a window (especially a UWP app) emits several
@@ -372,7 +387,7 @@ unsafe extern "system" fn window_change_event_proc(
 
     if let Some(app_handle) = WINDOW_CHANGE_APP_HANDLE.get().cloned() {
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
             if LAST_WINDOW_CHANGE_MS.load(Ordering::Relaxed) == now {
                 let _ = app_handle.emit("windows-changed", ());
             }
@@ -2663,7 +2678,10 @@ unsafe extern "system" fn mouse_hook_proc(
             let main_ignored = MH_LAST_MAIN_IGNORE.load(Ordering::Relaxed) == 1;
             let dock_ignored = MH_LAST_DOCK_IGNORE.load(Ordering::Relaxed) == 1;
             let menu_open = MENU_IS_OPEN.load(Ordering::Relaxed);
-            let in_middle = cursor.y > (mon_y + 440) && cursor.y < (mon_y + mon_h - 220) && cursor.x > (mon_x + 30);
+            let in_middle = cursor.y > (mon_y + 440)
+                && cursor.y < (mon_y + mon_h - 220)
+                && cursor.x > (mon_x + 35)
+                && cursor.x < (mon_x + mon_w - 35);
             if main_ignored && dock_ignored && !menu_open && in_middle {
                 return CallNextHookEx(None, code, wparam, lparam);
             }
@@ -2815,16 +2833,19 @@ unsafe extern "system" fn mouse_hook_proc(
 
             // --- Left Edge (Volume) ---
             if !fg_fs {
+                let sc = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed));
+                let edge_band = ((14.0 * sc) as i32).max(14);
                 let at_left_edge =
-                    cursor.x <= (mon_x + 8) && cursor.y >= mon_y && cursor.y <= (mon_y + mon_h);
+                    cursor.x <= (mon_x + edge_band) && cursor.y >= mon_y && cursor.y <= (mon_y + mon_h);
 
-                // The collapsed card extends past the 8px edge band, so once the
+                // The collapsed card extends past the edge band, so once the
                 // edge hover is established, keep it alive while the cursor is
                 // over the card too (otherwise pausing on the mixer button lets
                 // the hover expire and the HUD hides mid-click).
-                let sc = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed));
-                let nw = (42.0 * sc) as i32;
-                let nh = (196.0 * sc) as i32;
+                let bloom_scale = crate::utils::get_bloom_scale(app_handle) as f32;
+                let full_sc = sc * bloom_scale;
+                let nw = (52.0 * full_sc) as i32;
+                let nh = (204.0 * full_sc) as i32;
                 let nx = mon_x;
                 let ny = mon_y + (mon_h / 2) - (nh / 2);
                 let over_card = !at_left_edge
@@ -2836,7 +2857,7 @@ unsafe extern "system" fn mouse_hook_proc(
                     && cursor.y <= ny + nh;
 
                 if at_left_edge || in_mixer || over_card {
-                    MH_LEFT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
+                    MH_LEFT_EXPIRY_MS.store(now + 600, Ordering::Relaxed);
                 }
 
                 let final_left_hover = now < MH_LEFT_EXPIRY_MS.load(Ordering::Relaxed);
@@ -2856,12 +2877,27 @@ unsafe extern "system" fn mouse_hook_proc(
 
             // --- Right Edge (Brightness) ---
             if !fg_fs {
-                let at_right_edge = cursor.x >= (mon_x + mon_w - 8)
+                let sc = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed));
+                let edge_band = ((14.0 * sc) as i32).max(14);
+                let at_right_edge = cursor.x >= (mon_x + mon_w - edge_band)
                     && cursor.y >= mon_y
                     && cursor.y <= (mon_y + mon_h);
 
-                if at_right_edge {
-                    MH_RIGHT_EXPIRY_MS.store(now + 500, Ordering::Relaxed);
+                let bloom_scale = crate::utils::get_bloom_scale(app_handle) as f32;
+                let full_sc = sc * bloom_scale;
+                let nw = (52.0 * full_sc) as i32;
+                let nh = (204.0 * full_sc) as i32;
+                let nx = mon_x + mon_w - nw;
+                let ny = mon_y + (mon_h / 2) - (nh / 2);
+                let over_card = !at_right_edge
+                    && MH_LAST_RIGHT_EDGE_HOVER.load(Ordering::Relaxed) != 0
+                    && cursor.x >= nx
+                    && cursor.x <= mon_x + mon_w
+                    && cursor.y >= ny
+                    && cursor.y <= ny + nh;
+
+                if at_right_edge || over_card {
+                    MH_RIGHT_EXPIRY_MS.store(now + 600, Ordering::Relaxed);
                 }
 
                 let final_right_hover = now < MH_RIGHT_EXPIRY_MS.load(Ordering::Relaxed);
@@ -2899,8 +2935,8 @@ unsafe extern "system" fn mouse_hook_proc(
                             let ms = m.size();
                             let mp = m.position();
                             let sc = m.scale_factor() * bloom_scale;
-                            let nw = (42.0 * sc) as i32;
-                            let nh = (196.0 * sc) as i32;
+                            let nw = (52.0 * sc) as i32;
+                            let nh = (204.0 * sc) as i32;
                             let nx = mp.x;
                             let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
                             cursor.x >= nx
@@ -2915,8 +2951,8 @@ unsafe extern "system" fn mouse_hook_proc(
                         let ms = m.size();
                         let mp = m.position();
                         let sc = m.scale_factor() * bloom_scale;
-                        let nw = (42.0 * sc) as i32;
-                        let nh = (196.0 * sc) as i32;
+                        let nw = (52.0 * sc) as i32;
+                        let nh = (204.0 * sc) as i32;
                         let nx = mp.x + ms.width as i32 - nw;
                         let ny = mp.y + (ms.height as i32 / 2) - (nh / 2);
                         cursor.x >= nx

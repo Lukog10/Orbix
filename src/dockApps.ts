@@ -25,20 +25,19 @@ const ownsVisibleWindow = (window: AppInfo, tray: TrayApp) =>
 		tray.window_handles.includes(hwnd as number)
 	);
 
-// An unpinned notification icon becomes a dock item only after its app has
-// appeared with a window. Pinned apps are eligible immediately at startup.
-// Forget observed apps when their tray icon exits, so a later tray-only launch
-// does not inherit a previous session's dock slot.
+// An unpinned notification icon becomes a dock item only while its app has
+// an open window. When closed, unpinned apps leave the dock immediately.
+// Pinned apps remain in the dock and show their background state when running in tray.
 export function selectDockTrayApps(
 	windows: AppInfo[],
 	tray: TrayApp[],
-	previouslyOpened: Set<string>,
+	_previouslyOpened: Set<string>,
 	isPinned: (app: TrayApp) => boolean
 ): { visible: TrayApp[]; observed: Set<string> } {
 	const observed = new Set<string>();
 	for (const app of tray) {
 		const path = trayPath(app);
-		if (previouslyOpened.has(path) || windows.some((window) => ownsVisibleWindow(window, app))) {
+		if (windows.some((window) => ownsVisibleWindow(window, app))) {
 			observed.add(path);
 		}
 	}
