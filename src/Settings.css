@@ -526,8 +526,13 @@ body {
 }
 
 input:checked + .slider {
-	background-color: #34c759;
-	border-color: #34c759;
+	background-color: #6B5290;
+	border-color: #6B5290;
+}
+
+input:checked + .slider:hover {
+	background-color: #795e9f;
+	border-color: #795e9f;
 }
 
 input:checked + .slider:before {
@@ -862,18 +867,33 @@ input:checked + .slider:before {
 	margin-bottom: 14px;
 	user-drag: none;
 	-webkit-user-drag: none;
+	border-radius: 16px;
+	overflow: hidden;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 	will-change: transform;
 	transition:
 		transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-		filter 0.2s ease;
+		box-shadow 0.2s ease;
 }
 
 .about-logo:hover {
 	transform: rotate(360deg);
 }
 
-.light-mode .about-logo {
-	filter: invert(1);
+.about-logo-light {
+	display: none;
+}
+
+.about-logo-dark {
+	display: block;
+}
+
+.light-mode .about-logo-light {
+	display: block;
+}
+
+.light-mode .about-logo-dark {
+	display: none;
 }
 
 .about-title {

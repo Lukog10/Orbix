@@ -142,7 +142,7 @@ export async function applyTheme(
 		root.style.setProperty("--bloom-text-muted", "rgba(28, 28, 30, 0.65)");
 		root.style.setProperty("--bloom-border", "rgba(0, 0, 0, 0.12)");
 		root.style.setProperty("--bloom-group-bg", "rgba(0, 0, 0, 0.04)");
-		root.style.setProperty("--bloom-accent", "#007aff");
+		root.style.setProperty("--bloom-accent", "#6B5290");
 		root.style.setProperty("--bloom-scrollbar-thumb", "rgba(0, 0, 0, 0.15)");
 		root.classList.add("light-mode");
 		root.classList.remove("dark-mode");
@@ -234,7 +234,7 @@ export async function applyTheme(
 		root.style.setProperty("--bloom-text-muted", "rgba(255, 255, 255, 0.6)");
 		root.style.setProperty("--bloom-border", "rgba(255, 255, 255, 0.1)");
 		root.style.setProperty("--bloom-group-bg", "rgba(255, 255, 255, 0.04)");
-		root.style.setProperty("--bloom-accent", "#007aff");
+		root.style.setProperty("--bloom-accent", "#6B5290");
 		root.style.setProperty("--bloom-scrollbar-thumb", "rgba(255, 255, 255, 0.1)");
 		root.classList.add("dark-mode");
 		root.classList.remove("light-mode");
@@ -272,7 +272,7 @@ export function getOpacityForTarget(target: WindowTarget): number {
 export function initTheme(target?: WindowTarget) {
 	const resolvedTarget = resolveWindowTarget(target);
 	const syncMode = localStorage.getItem("bloom-theme-mode") || "dark";
-	const syncColor = localStorage.getItem("bloom-theme-color") || "#007aff";
+	const syncColor = localStorage.getItem("bloom-theme-color") || "#6B5290";
 	const syncOpacity = getOpacityForTarget(resolvedTarget);
 	const syncSaturationVal = localStorage.getItem("bloom-theme-saturation");
 	const syncSaturation = syncSaturationVal !== null ? parseFloat(syncSaturationVal) : 0.5;
@@ -344,7 +344,7 @@ export function initTheme(target?: WindowTarget) {
 	// Helper: read all theme values from localStorage and apply
 	const applyThemeFromStorage = () => {
 		const mode = localStorage.getItem("bloom-theme-mode") || "dark";
-		const color = localStorage.getItem("bloom-theme-color") || "#007aff";
+		const color = localStorage.getItem("bloom-theme-color") || "#6B5290";
 		const opacity = getOpacityForTarget(resolvedTarget);
 		const saturation = parseFloat(localStorage.getItem("bloom-theme-saturation") || "0.50");
 		const brightness = parseFloat(localStorage.getItem("bloom-theme-brightness") || "0.15");

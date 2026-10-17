@@ -2,6 +2,8 @@ import { Download, RefreshCw, FileDown, Upload } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { GithubIcon } from "../icons";
 import { SettingRow } from "./SettingRow";
+import logoDark from "../assets/logo-dark.svg";
+import logoLight from "../assets/logo-light.svg";
 
 interface AboutTabProps {
 	appVersion: string;
@@ -69,7 +71,8 @@ export function AboutTab({
 	return (
 		<div className="about-tab-container">
 			<div className="about-header">
-				<img src="/orbix.png" className="about-logo" alt="Orbix Logo" draggable={false} />
+				<img src={logoDark} className="about-logo about-logo-dark" alt="Orbix Logo" draggable={false} />
+				<img src={logoLight} className="about-logo about-logo-light" alt="Orbix Logo" draggable={false} />
 				<h1 className="about-title">Orbix</h1>
 				<p className="about-version">Version {appVersion || "0.1.0"} (Beta)</p>
 				<p className="about-credit">

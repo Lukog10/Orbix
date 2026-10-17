@@ -180,7 +180,7 @@ export function useSettings() {
 		() => localStorage.getItem("bloom-theme-mode") || "dark"
 	);
 	const [themeColor, setThemeColor] = useState(
-		() => localStorage.getItem("bloom-theme-color") || "#007aff"
+		() => localStorage.getItem("bloom-theme-color") || "#6B5290"
 	);
 	const [themeOpacity, setThemeOpacity] = useState(() => {
 		const val = localStorage.getItem("bloom-theme-opacity");
