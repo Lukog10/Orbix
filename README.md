@@ -21,7 +21,7 @@
 [![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2F%20TypeScript-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Motion](https://img.shields.io/badge/Motion-Framer%20Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)](https://www.framer.com/motion/)
 [![Audio](https://img.shields.io/badge/Audio-WASAPI%20Loopback-9333EA?style=for-the-badge&logo=applepodcasts&logoColor=white)](https://learn.microsoft.com/en-us/windows/win32/coreaudio/core-audio-apis-in-windows-vista)
-[![Release](https://img.shields.io/badge/Version-v0.1.0%20(Beta)-10B981?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Lukog10/Zvuk-Shell/releases/tag/v0.1.0)
+[![Release](https://img.shields.io/badge/Version-v0.1.0%20(Beta)-10B981?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Lukog10/Orbix/releases/tag/v0.1.0)
 [![License](https://img.shields.io/badge/License-GPL%20v3-F59E0B?style=for-the-badge)](LICENSE)
 
 <br />
@@ -213,8 +213,8 @@ MpCmdRun.exe -SignatureUpdate
 
 Download the latest pre-built standalone release bundle:
 
-- **[Latest Release: Orbix v0.1.0 (Beta)](https://github.com/Lukog10/Zvuk-Shell/releases/tag/v0.1.0)**
-- **[Direct Download: Orbix-v0.1.0-beta-windows-x64.zip](https://github.com/Lukog10/Zvuk-Shell/releases/download/v0.1.0/Orbix-v0.1.0-beta-windows-x64.zip)**
+- **[Latest Release: Orbix v0.1.0 (Beta)](https://github.com/Lukog10/Orbix/releases/tag/v0.1.0)**
+- **[Direct Download: Orbix-v0.1.0-beta-windows-x64.zip](https://github.com/Lukog10/Orbix/releases/download/v0.1.0/Orbix-v0.1.0-beta-windows-x64.zip)**
 
 #### Quick Installation
 1. Download `Orbix-v0.1.0-beta-windows-x64.zip` from the release link above.
@@ -236,8 +236,8 @@ Download the latest pre-built standalone release bundle:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Lukog10/Zvuk-Shell.git
-cd Zvuk-Shell
+git clone https://github.com/Lukog10/Orbix.git
+cd Orbix
 
 # 2. Install frontend dependencies
 bun install
@@ -261,7 +261,7 @@ src-tauri/target/release/orbix.exe
 ## Repository Structure
 
 ```
-Zvuk-Shell/
+Orbix/
 ├── assets/
 │   └── screenshots/              # High-resolution screenshots and visuals
 │       ├── orbix-desktop-hero.jpg    # Full-screen desktop showcase
