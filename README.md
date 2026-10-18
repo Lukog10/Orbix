@@ -2,114 +2,200 @@
 
 <img 
   src="./public/orbix.png" 
-  width="96"
+  width="100"
   alt="Orbix Logo"
+  style="margin-bottom: 12px;"
 />
 
 # Orbix
 
-> **Orbix** is an open-source Windows desktop utility built with **Rust (Tauri v2)** and **React 19 / TypeScript**. It replaces the native Windows taskbar with a floating dock and adds a dynamic, spring-animated island notch to the top of your screen.
-> 
-> Forked from **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)** under the **GPLv3** license. See [CREDITS.md](CREDITS.md) for full attribution.
+**Dynamic Island Notch & Floating Physics Dock for Windows**
 
-<br/>
+<p align="center">
+  <em>An open-source, local-first desktop utility transforming the Windows desktop with spring-physics motion, an adaptive dynamic notch, and a customizable floating taskbar dock.</em>
+</p>
 
-<!-- HERO SHOWCASE — full-width cinematic shot or video -->
-<img width="1920" height="1080" alt="Orbix Hero" src="https://github.com/user-attachments/assets/22041f25-a69e-457d-80d9-7dfbfbed2d29" />
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Framework](https://img.shields.io/badge/Framework-Tauri%20v2-FFC131?style=for-the-badge&logo=tauri&logoColor=black)](https://tauri.app/)
+[![Core](https://img.shields.io/badge/Core-Rust%202021-DEA584?style=for-the-badge&logo=rust&logoColor=black)](https://www.rust-lang.org/)
+[![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2F%20TypeScript-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Motion](https://img.shields.io/badge/Motion-Framer%20Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)](https://www.framer.com/motion/)
+[![Audio](https://img.shields.io/badge/Audio-WASAPI%20Loopback-9333EA?style=for-the-badge&logo=applepodcasts&logoColor=white)](https://learn.microsoft.com/en-us/windows/win32/coreaudio/core-audio-apis-in-windows-vista)
+[![Release](https://img.shields.io/badge/Version-v0.1.0%20(Beta)-10B981?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Lukog10/Zvuk-Shell/releases/tag/v0.1.0)
+[![License](https://img.shields.io/badge/License-GPL%20v3-F59E0B?style=for-the-badge)](LICENSE)
 
-<video width="1920" height="1080" src="https://github.com/user-attachments/assets/fa7f949b-d9c3-4a92-b00d-e1132c0f3ff1">
+<br />
+
+[Overview](#overview) &bull; [Core Features and Subsystems](#core-features-and-subsystems) &bull; [Visual Showcase](#visual-showcase) &bull; [System Architecture](#system-architecture) &bull; [Security and Windows Defender](#security-and-windows-defender) &bull; [Download](#download) &bull; [Building From Source](#building-from-source) &bull; [Repository Structure](#repository-structure) &bull; [Credits and License](#credits-and-license)
+
+<br />
+
+<img src="assets/screenshots/orbix-desktop-hero.jpg" alt="Orbix Desktop Hero Showcase" width="100%" style="border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);" />
 
 </div>
 
 ---
 
-Orbix makes your Windows desktop feel alive.
+## Overview
 
-Every transition is a physics simulation.  
-Every element responds to touch and hover.  
-Every pixel is in motion.
+**Orbix** is a modern, physics-driven desktop replacement shell for Windows 10 and 11. Built with **Rust (Tauri v2)** and **React 19 / TypeScript**, Orbix replaces the traditional static Windows taskbar with a fluid, floating dock and introduces an adaptive, spring-animated island notch at the top of your display.
 
-Your desktop has been asleep for years.  
-This wakes it up.
+Every transition in Orbix is calculated via real-time physics simulations. Whether expanding the notch for quick system toggles, previewing running windows on the dock, controlling playback with live WASAPI audio visualizers, or managing Pomodoro focus sessions, Orbix delivers a refined, tactile computing experience without sacrificing performance or battery life.
 
----
+### Why Orbix?
 
-## 🏝️ The Island (Dynamic Notch)
+The standard Windows desktop shell has remained largely static for decades:
+1. **Clunky Native Controls**: Quick toggles and task switching require navigating separate flyouts, menus, and hidden taskbar icons.
+2. **Heavyweight Shell Replacements**: Many existing desktop customization tools consume substantial CPU and RAM, poll inefficiently, or trigger continuous GPU activity.
+3. **Telemetry & Privacy Concerns**: Proprietary desktop enhancements often bundle analytics trackers, background telemetry agents, or forced online accounts.
 
-<p align="center">
-  <img width="430" height="70" alt="Orbix Island" src="https://github.com/user-attachments/assets/0d723558-9df4-4214-b20e-4a1f97eb1f22" />
-</p>
-
-An adaptive notch at the top of your screen that expands, contracts, and shifts between modes as you work. Scroll on the header or swipe to switch sections.
-
-* **📊 Live Telemetry & Status** — Configurable status widgets for CPU %, RAM %, Disk space, real-time Network upload/download bandwidth, local weather, and battery percentage.
-* **🎧 Audio Device Alerts & Indicators** — Live Core Audio integration detecting headphones and microphones. Features persistent status icons and animated notification pills in the notch upon device connection/disconnection.
-* **🎛️ Command Center & Quick Controls** — Instant on/off toggle switches for Wi-Fi, Bluetooth, Ethernet (left-click toggle, right-click settings), Airplane / Flight Mode, Mobile Hotspot, Focus / Do Not Disturb, and Energy Saver, plus volume and brightness sliders.
-* **🎵 Music & Visualizer** — Real-time WASAPI audio loopback visualizer reacting to 5 frequency bands with spring physics. Displays track title, artist marquee, media controls, and album art with dynamic ambient glow (supports both Classic and Compact layouts).
-* **🖼️ Wallpaper Carousel** — Full-screen wallpaper gallery with smooth centered wheel scrolling, thumbnail caching, custom folder selection, and one-click desktop wallpaper application via Win32.
-* **⚡ Power Menu** — Circular hold-to-activate controls for Sleep, Restart, Shutdown, Lock Workstation, and Switch User.
-* **📅 Calendar & Focus Timer** — Split-view calendar alongside an inline Pomodoro countdown timer with custom audio chime synthesis.
-* **🔍 Apps & Launcher Search** — Rapid app launcher and indexed search for files, folders, and applications.
-* **📥 The Shelf** — OLE drag-and-drop persistent staging ground for dragging files, documents, and text snippets across workspaces.
+**Orbix solves this with a modern, lightweight philosophy:**
+- **Zero Telemetry & 100% Local**: No analytics pings, no cloud login, no external dependencies. All configuration is stored locally on your machine in clean JSON format.
+- **Genuine Win32 Integration**: Uses native Win32 `AppBar` registration so maximized windows respect the dock layout, along with DWM thumbnail capture for fluid live previews.
+- **Micro-Engineered Efficiency**: Rust-powered background workers sleep when idle. The WASAPI audio visualizer automatically suspends during playback pauses, and mouse-edge triggers dynamically relax outside interaction zones.
+- **Natural Physics Animation**: Powered by Framer Motion springs and custom math curves, ensuring every gesture, hover, and dismiss feels alive.
 
 ---
 
-## 🚀 The Dock
+## Core Features and Subsystems
 
-<p align="center">
-  <img width="576" height="102" alt="Orbix Dock" src="https://github.com/user-attachments/assets/96229f0e-1246-4baf-b8ad-3e8f77142a12" />
-</p>
+Orbix is designed around four tightly integrated desktop subsystems:
 
-A floating taskbar replacement that sits cleanly at the bottom of your screen:
+### 1. The Island (Dynamic Top Notch)
+An adaptive status island centered at the top of your monitor that smoothly expands, switches modes, and contracts based on user interaction:
 
-* **Native Windows Taskbar Replacement** — Hides the stock taskbar and registers proper Win32 AppBars so maximized windows respect the dock's footprint.
-* **Hover Thumbnail Previews** — Real-time DWM window thumbnail capture on hover.
-* **Fluid Drag-and-Drop Reordering** — Smooth physics-based app reordering, custom pinning, and running indicator dots.
-* **Dock Extras** — Quick access to drives, custom user directories, and Recycle Bin with state indicators.
-* **Robust Context Menus** — Reliable right-click dialog bar for app controls (pin, close, run as administrator) and system tools.
-* **Adaptive Display Modes** — Choose between `fixed` (AppBar reserved), `smart` (auto-hides when overlapped by windows), or `peek` (reveals on bottom-edge contact).
+<div align="center">
+  <img src="assets/screenshots/orbix-quick-settings.png" alt="Command Center and Quick Controls" width="60%" style="border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px;" />
+  <p><em>Command Center: System telemetry, instant connectivity toggles, and precision volume/brightness sliders.</em></p>
+</div>
 
----
-
-## 🎚️ HUD Overlays & Customization
-
-* **Edge Overlays** — Custom sleek Volume and Brightness HUD overlays with screen-edge hover triggers, replacing standard Windows flyouts.
-* **Complete Settings Suite** — Comprehensive settings tab for Notch behavior, Dock layout, Quick Controls visibility selection, Appearance themes/scaling, and Autostart.
-* **Documented Configuration** — Flat JSON settings store documented in [SETTINGS.md](SETTINGS.md) with real-time file watching.
+* **Live Hardware Telemetry**: Real-time meters for CPU utilization, RAM usage, storage availability, upstream/downstream network throughput, and battery capacity.
+* **Command Center & Quick Controls**: Instant hardware switches for Wi-Fi, Bluetooth, Ethernet (with single-click toggle and right-click deep link to Windows Settings), Airplane Mode, Mobile Hotspot, Night Light, Focus / Do Not Disturb, and Energy Saver, alongside responsive sliders for master volume and display brightness.
+* **Core Audio Device Detection**: Monitors connected input and output endpoints in real-time, displaying non-intrusive status pills when headphones or microphones are attached.
 
 ---
 
-## ⚙️ Architecture & Under the Hood
+### 2. Time, Focus & Application Search
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/orbix-calendar-timer.png" alt="Calendar and Pomodoro Focus Timer" width="100%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);" />
+        <br /><strong>Calendar & Pomodoro Timer</strong>
+      </td>
+      <td width="50%" align="center">
+        <img src="assets/screenshots/orbix-app-launcher.png" alt="Instant App and File Launcher" width="100%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);" />
+        <br /><strong>Universal App & Snippet Search</strong>
+      </td>
+    </tr>
+  </table>
+</div>
 
-Orbix operates as a multi-webview Tauri v2 architecture designed for low overhead and maximum smoothness:
-
-* **Rust Backend**:
-  * Low-level Win32 hooks (`WH_MOUSE_LL`, `WH_KEYBOARD_LL`) for boundary hit-testing and hotkey intercepts.
-  * Windows Core Audio API (`IMMDeviceEnumerator`) for real-time audio device polling and notification broadcasts.
-  * WASAPI loopback audio capture feeding frequency bands to the visualizer.
-  * Win32 `SHAppBarMessage` managing desktop work areas.
-  * Non-blocking background worker threads for hardware metrics, weather polling, and thumbnail generation.
-* **Frontend**:
-  * Built with React 19, TypeScript, and Vite.
-  * Powered by Framer Motion spring physics simulations.
-  * Strict bundle isolation across four distinct webview windows: `main` (notch), `dock`, `overlay`, and `settings`.
-* **Zero Resource Waste**:
-  * Visualizer suspends when audio is paused.
-  * Mouse hook relaxes when cursor is away from hot zones.
-  * Window thumbnails generate on demand.
+* **Calendar & Focus Timer**: Split-view layout featuring a full interactive monthly calendar grid beside an integrated Pomodoro focus countdown timer (5m, 15m, 25m, 50m presets) with synthesized audio chimes upon completion.
+* **Universal Search & Launcher (`Win+A`)**: Blazing-fast app launcher with keyboard indexing for installed applications, recent software, files, folders, and clipboard snippets.
+* **Wallpaper Carousel**: Full-screen visual wallpaper gallery with wheel scrolling, cached thumbnails, custom folder support, and one-click desktop background application via Win32 APIs.
+* **The Shelf**: OLE drag-and-drop persistent staging dock for temporarily pinning files, images, documents, and text snippets while switching windows.
 
 ---
 
-## 🛡️ Microsoft Defender & Security
+### 3. Media Player & WASAPI Audio Visualizer
+<div align="center">
+  <img src="assets/screenshots/orbix-media-player.png" alt="Media Player and Audio Visualizer" width="85%" style="border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px;" />
+  <p><em>Island Media Player: Ambient glow album artwork, marquee track titles, media controls, and reactive audio visualizer.</em></p>
+</div>
 
-Because Orbix is an open-source tool that hooks into native Windows shell APIs (taskbar management, global hotkeys, audio capture), Windows Defender or SmartScreen may occasionally prompt a notification on initial download.
+* **WASAPI Loopback Capture**: Captures system audio loopback without virtual audio drivers or latency, rendering real-time frequency-band visualizers with spring physics.
+* **Rich Media Controller**: Reads metadata (title, artist, album art) from Windows System Media Transport Controls (SMTC) for Spotify, YouTube, Apple Music, and browsers.
+* **Dynamic Ambient Glow**: Analyzes current album art colors to project a subtle ambient backdrop behind the floating notch.
 
-The application contains **no adware, telemetry, or malware**. You can inspect and build the entire codebase yourself from source.
+---
+
+### 4. The Floating Dock
+A sleek, customizable taskbar replacement that hovers cleanly at the bottom of your workspace:
+
+* **True Desktop Work-Area Management**: Hides the default Windows taskbar and registers genuine Win32 AppBars so full-screen and maximized windows adapt without awkward overlaps.
+* **DWM Live Thumbnail Previews**: High-performance Desktop Window Manager (DWM) thumbnail rendering on icon hover.
+* **Interactive Drag-and-Drop Reordering**: Smooth reordering of pinned items, running status dots, and instant removal of closed applications.
+* **Display Modes**:
+  - `Fixed`: Always reserved, persistent desktop presence.
+  - `Smart`: Intelligently auto-hides when overlapped by active foreground windows.
+  - `Peek`: Reveals instantly upon cursor contact with the screen bottom.
+
+---
+
+## Visual Showcase
+
+| Quick Controls & Status | Focus & Calendar Hub |
+| :---: | :---: |
+| <img src="assets/screenshots/orbix-quick-settings.png" width="100%" style="border-radius: 8px;" /> | <img src="assets/screenshots/orbix-calendar-timer.png" width="100%" style="border-radius: 8px;" /> |
+| **Instant Launcher (`Win+A`)** | **Adaptive Media Player** |
+| <img src="assets/screenshots/orbix-app-launcher.png" width="100%" style="border-radius: 8px;" /> | <img src="assets/screenshots/orbix-media-player.png" width="100%" style="border-radius: 8px;" /> |
+
+---
+
+## System Architecture
+
+Orbix employs a multi-webview Tauri v2 architecture that strictly isolates low-level Win32 hardware hooks in Rust while rendering ultra-responsive UI layers in React 19:
+
+```mermaid
+flowchart TD
+    subgraph USER ["User Triggers & System Events"]
+        U1["Mouse Edge Hover / Gestures"]
+        U2["Global Hotkeys (Win+A, etc.)"]
+        U3["Core Audio Device Changes"]
+        U4["SMTC Audio / Media Stream"]
+    end
+
+    subgraph BACKEND ["Rust Native Core (Tauri v2)"]
+        WH["Low-Level Hooks (WH_MOUSE_LL / WH_KEYBOARD_LL)"]
+        AB["Win32 AppBar Service (SHAppBarMessage)"]
+        CA["Core Audio & WASAPI Loopback Capture"]
+        TH["DWM Window Thumbnail Manager"]
+        FS["Flat JSON Store & File Watcher"]
+    end
+
+    subgraph FRONTEND ["Isolated Webview Windows (React 19)"]
+        MAIN["Island Notch Window (main)"]
+        DOCK["Floating Dock Window (dock)"]
+        OVER["HUD Edge Overlays (overlay)"]
+        SETT["Settings Window (settings)"]
+    end
+
+    U1 --> WH
+    U2 --> WH
+    U3 --> CA
+    U4 --> CA
+
+    WH --> MAIN
+    WH --> DOCK
+    WH --> OVER
+    AB --> DOCK
+    CA --> MAIN
+    TH --> DOCK
+    FS <--> SETT
+    FS --> MAIN
+    FS --> DOCK
+```
+
+### Architectural Highlights
+- **Multi-Window Isolation**: Four distinct webview contexts (`main`, `dock`, `overlay`, `settings`) prevent layout thrashing and maintain smooth 60+ FPS animations.
+- **Win32 Hook Efficiency**: The global mouse hook (`WH_MOUSE_LL`) implements spatial early returns, relaxing CPU cycles whenever the cursor is outside hot zones.
+- **Hardware Acceleration**: GPU-accelerated CSS transforms and Framer Motion spring physics ensure hardware-efficient rendering without tearing.
+
+---
+
+## Security and Windows Defender
+
+Because Orbix integrates with low-level Windows shell APIs (managing the taskbar footprint via `SHAppBarMessage`, registering global shortcut hooks, and listening to WASAPI loopback audio), Windows Defender or SmartScreen may occasionally flag new builds upon initial download.
+
+- **100% Open Source & Auditable**: Every line of Rust and TypeScript code is fully open source under the GPLv3 license.
+- **Zero Network Egress**: Orbix contains no tracking code, telemetry SDKs, or background pings. All features run strictly on your device.
+- **Build It Yourself**: You can verify and compile the entire application directly from source using standard tools (`cargo` and `bun`).
 
 <details>
-<summary>Clearing false-positive Defender cached signatures</summary>
+<summary>How to clear false-positive Windows Defender signatures</summary>
 
-Open **Command Prompt as Administrator** and run:
+Open **Command Prompt as Administrator** and execute:
 
 ```cmd
 cd "C:\Program Files\Windows Defender"
@@ -121,46 +207,94 @@ MpCmdRun.exe -SignatureUpdate
 
 ---
 
-## 🛠️ Building From Source
+## Download
+
+### Standalone Executable (Windows x64)
+
+Download the latest pre-built standalone release bundle:
+
+- **[Latest Release: Orbix v0.1.0 (Beta)](https://github.com/Lukog10/Zvuk-Shell/releases/tag/v0.1.0)**
+- **[Direct Download: Orbix-v0.1.0-beta-windows-x64.zip](https://github.com/Lukog10/Zvuk-Shell/releases/download/v0.1.0/Orbix-v0.1.0-beta-windows-x64.zip)**
+
+#### Quick Installation
+1. Download `Orbix-v0.1.0-beta-windows-x64.zip` from the release link above.
+2. Extract the ZIP archive to your preferred location (e.g. `C:\Program Files\Orbix` or your user folder).
+3. Double-click **`Orbix.exe`** to launch immediately. No installer, third-party runtimes, or administrative privileges are required.
+4. *(Optional)* Enable **Launch at Startup** in Orbix Settings to have your dock and notch start automatically with Windows.
+
+---
+
+## Building From Source
 
 ### Prerequisites
+- **Operating System**: Windows 10 or 11 (64-bit)
+- **Rust**: Stable toolchain ([rustup.rs](https://rustup.rs/))
+- **Bun**: v1.4+ ([bun.sh](https://bun.sh/))
+- **Node.js**: v18+ (optional, Bun handles all frontend scripting)
 
-* Windows 10 / 11 (64-bit)
-* [Rust](https://rustup.rs/) (stable toolchain)
-* [Bun](https://bun.sh/) (v1.4+)
-
-### Quick Start
+### Step-by-Step Instructions
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/Lukog10/Zvuk-Shell.git
 cd Zvuk-Shell
 
-# Install frontend dependencies
+# 2. Install frontend dependencies
 bun install
 
-# Run development loop (Vite + Tauri dev)
+# 3. Launch live development loop (Vite + Tauri Dev)
 bun run tauri dev
+
+# 4. Build optimized standalone production release
+bun run build
+cd src-tauri
+cargo build --release --locked
 ```
 
-### Production Build & Tests
-
-```bash
-# Build & typecheck frontend
-bun run build
-
-# Check Rust backend
-cd src-tauri
-cargo check --locked
-cargo test --locked
+The resulting standalone executable will be located at:
+```
+src-tauri/target/release/orbix.exe
 ```
 
 ---
 
-## 📜 Credits & License
+## Repository Structure
+
+```
+Zvuk-Shell/
+├── assets/
+│   └── screenshots/              # High-resolution screenshots and visuals
+│       ├── orbix-desktop-hero.jpg    # Full-screen desktop showcase
+│       ├── orbix-quick-settings.png  # Control Center and telemetry panel
+│       ├── orbix-calendar-timer.png  # Focus timer and calendar grid
+│       ├── orbix-app-launcher.png    # Universal search and launcher
+│       └── orbix-media-player.png    # Media notch and audio visualizer
+├── docs/                         # Extended specifications and guides
+├── public/                       # Static web icons and branding
+├── scripts/                      # Release and version management automation
+│   ├── bump-version.mjs          # Synchronized multi-file version bumper
+│   └── release.mjs               # Automated git release pipeline
+├── src/                          # React 19 Frontend Webview Components
+│   ├── components/               # UI widgets (Notch, Calendar, Launcher, Shelf)
+│   ├── Dock.tsx                  # Floating dock implementation
+│   ├── dockApps.ts               # Running app state & DWM thumbnail hooks
+│   ├── Settings.tsx              # Comprehensive configuration window
+│   └── main.tsx                  # Frontend entry point
+├── src-tauri/                    # Rust Native Core & Win32 Integration
+│   ├── src/                      # Win32 hooks, AppBar manager, Core Audio
+│   ├── Cargo.toml                # Rust crate definitions
+│   └── tauri.conf.json           # Tauri multi-window and security config
+├── SETTINGS.md                   # Flat JSON configuration specifications
+├── CREDITS.md                    # Third-party attributions and upstream notice
+└── LICENSE                       # GNU General Public License v3.0
+```
+
+---
+
+## Credits and License
 
 Orbix is built upon the foundation of **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)**.  
-See [CREDITS.md](CREDITS.md) for detailed attribution and third-party dependency details.
+We express immense gratitude to the original creator and contributors. See [CREDITS.md](CREDITS.md) for complete attribution and license compliance records.
 
 Licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
 
@@ -168,6 +302,6 @@ Licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
 
 <div align="center">
 
-**Orbix — Windows desktop, refined.**
+**Orbix &bull; Next-generation desktop dynamics for Windows.**
 
 </div>
