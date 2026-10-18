@@ -53,7 +53,7 @@ export function AboutTab({
 	const getUpdateDesc = () =>
 		updateStatus === "available"
 			? "Click to install and restart"
-			: `Currently running v${appVersion || "0.1.0"} (Beta)`;
+			: `Currently running v${appVersion || "0.1.0 (Beta)"}`;
 
 	const getExportLabel = () => {
 		if (exportStatus === "exporting") return "Exporting...";
@@ -72,15 +72,15 @@ export function AboutTab({
 			<div className="about-header">
 				<img src={logoDark} className="about-logo" alt="Orbix Logo" draggable={false} />
 				<h1 className="about-title">Orbix</h1>
-				<p className="about-version">Version {appVersion || "0.1.0"} (Beta)</p>
+				<p className="about-version">Version {appVersion || "0.1.0 (Beta)"}</p>
 				<p className="about-credit">
 					<button
 						className="about-author"
-						onClick={() => openUrl("https://github.com/Lukog10/Zvuk-Shell")}
+						onClick={() => openUrl("https://github.com/Lukog10/Orbix")}
 						title="Orbix on GitHub"
 					>
 						<GithubIcon size={12} />
-						<span>Lukog10/Zvuk-Shell</span>
+						<span>Lukog10/Orbix</span>
 					</button>
 				</p>
 			</div>

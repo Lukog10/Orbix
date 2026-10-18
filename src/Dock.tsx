@@ -1364,8 +1364,8 @@ const Dock = memo(function Dock() {
 
 														const isBloomOrSettings =
 															app.name.toLowerCase() === "settings" ||
-															app.name.toLowerCase() === "bloom" ||
-															app.path.toLowerCase().includes("bloom.exe");
+															app.name.toLowerCase() === "orbix" || app.name.toLowerCase() === "bloom" ||
+															app.path.toLowerCase().includes("orbix.exe") || app.path.toLowerCase().includes("bloom.exe");
 
 														return icon ? (
 															<img
@@ -1522,8 +1522,8 @@ const Dock = memo(function Dock() {
 													app.icon;
 												const isBloomOrSettings =
 													app.name.toLowerCase() === "settings" ||
-													app.name.toLowerCase() === "bloom" ||
-													app.path.toLowerCase().includes("bloom.exe");
+													app.name.toLowerCase() === "orbix" || app.name.toLowerCase() === "bloom" ||
+													app.path.toLowerCase().includes("orbix.exe") || app.path.toLowerCase().includes("bloom.exe");
 												return icon ? (
 													<img
 														src={icon}
@@ -1694,10 +1694,10 @@ const Dock = memo(function Dock() {
 							</div>
 							<div
 								className="menu-item has-submenu"
-								onMouseEnter={() => setActiveSubmenu("bloom")}
+								onMouseEnter={() => setActiveSubmenu("orbix")}
 								onMouseLeave={() => setActiveSubmenu(null)}
 							>
-								Bloom Options
+								Orbix Options
 								<span className="submenu-arrow">▶</span>
 								<div className="submenu">
 									<div
@@ -1710,7 +1710,7 @@ const Dock = memo(function Dock() {
 										Open Settings
 									</div>
 									<div className="menu-item" onClick={() => invoke("restart_bloom")}>
-										Restart Bloom
+										Restart Orbix
 									</div>
 									<div
 										className="menu-item"
@@ -1723,7 +1723,7 @@ const Dock = memo(function Dock() {
 									</div>
 									<div className="menu-divider" />
 									<div className="menu-item quit" onClick={() => invoke("quit_bloom")}>
-										Quit Bloom
+										Quit Orbix
 									</div>
 								</div>
 							</div>
@@ -1793,10 +1793,10 @@ const Dock = memo(function Dock() {
 							</div>
 							<div
 								className="menu-item has-submenu"
-								onMouseEnter={() => setActiveSubmenu("bloom")}
+								onMouseEnter={() => setActiveSubmenu("orbix")}
 								onMouseLeave={() => setActiveSubmenu(null)}
 							>
-								Bloom Options
+								Orbix Options
 								<span className="submenu-arrow">▶</span>
 								<div className="submenu">
 									<div
@@ -1809,7 +1809,7 @@ const Dock = memo(function Dock() {
 										Open Settings
 									</div>
 									<div className="menu-item" onClick={() => invoke("restart_bloom")}>
-										Restart Bloom
+										Restart Orbix
 									</div>
 									<div
 										className="menu-item"
@@ -1822,7 +1822,7 @@ const Dock = memo(function Dock() {
 									</div>
 									<div className="menu-divider" />
 									<div className="menu-item quit" onClick={() => invoke("quit_bloom")}>
-										Quit Bloom
+										Quit Orbix
 									</div>
 								</div>
 							</div>

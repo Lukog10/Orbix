@@ -295,7 +295,7 @@ Orbix/
 ## Credits and License
 
 Orbix is built upon the foundation of **[Bloom](https://github.com/SehajveerSingh2005/bloom)** by **[Sehajveer Singh](https://github.com/SehajveerSingh2005)**.  
-We express immense gratitude to the original creator and contributors. See [CREDITS.md](CREDITS.md) for complete attribution and license compliance records.
+We express immense gratitude to the original creator and contributors. 
 
 Licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
 

@@ -1,10 +1,10 @@
-# Bloom Settings Reference
+# Orbix Settings Reference
 
-All settings are stored in `settings.json` in the app config directory (`%APPDATA%/bloom/`). The file is a flat JSON object with `bloom-` prefixed keys. Bloom watches this file for external changes and applies them in real-time.
+All settings are stored in `settings.json` in the app config directory (`%APPDATA%/bloom/`). The file is a flat JSON object with `bloom-` prefixed keys. Orbix watches this file for external changes and applies them in real-time.
 
 ## Quick Start
 
-Edit `settings.json` with any text editor while Bloom is running. Changes are applied immediately — no restart required.
+Edit `settings.json` with any text editor while Orbix is running. Changes are applied immediately — no restart required.
 
 ```json
 {
@@ -21,7 +21,7 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 
 | Key                                | Type                             | Default       | Description                                                                                                                                                                      |
 | ---------------------------------- | -------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bloom-dock-enabled`               | `"true"` / `"false"`             | `"true"`      | Show or hide the Bloom Dock (taskbar replacement).                                                                                                                               |
+| `bloom-dock-enabled`               | `"true"` / `"false"`             | `"true"`      | Show or hide the Orbix Dock (taskbar replacement).                                                                                                                               |
 | `bloom-dock-mode`                  | `"fixed"` / `"smart"` / `"peek"` | `"smart"`     | Dock visibility behavior. **fixed** = always visible as AppBar. **smart** = auto-hide when overlapped by fullscreen apps. **peek** = hidden until cursor approaches bottom edge. |
 | `bloom-dock-preview-enabled`       | `"true"` / `"false"`             | `"true"`      | Show window thumbnail previews when hovering dock icons.                                                                                                                         |
 | `bloom-dock-icon-only`             | `"true"` / `"false"`             | `"false"`     | Minimal icon-only style (no background/padding around icons).                                                                                                                    |
@@ -80,7 +80,7 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 
 | Key                   | Type                 | Default   | Description                                                                                                    |
 | --------------------- | -------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
-| `bloom-shelf-persist` | `"true"` / `"false"` | `"false"` | Keep notch shelf items across restarts. Off = items are cleared when Bloom closes. Max 10 items, newest first. |
+| `bloom-shelf-persist` | `"true"` / `"false"` | `"false"` | Keep notch shelf items across restarts. Off = items are cleared when Orbix closes. Max 10 items, newest first. |
 
 ### Music Appearance
 
@@ -96,9 +96,9 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 
 | Key                                | Type                 | Default  | Description                                                              |
 | ---------------------------------- | -------------------- | -------- | ------------------------------------------------------------------------ |
-| `bloom-volume-overlay-enabled`     | `"true"` / `"false"` | `"true"` | Show Bloom volume HUD when volume changes (replaces native Windows OSD). |
+| `bloom-volume-overlay-enabled`     | `"true"` / `"false"` | `"true"` | Show Orbix volume HUD when volume changes (replaces native Windows OSD). |
 | `bloom-volume-edge-enabled`        | `"true"` / `"false"` | `"true"` | Trigger volume HUD by hovering the left screen edge.                     |
-| `bloom-brightness-overlay-enabled` | `"true"` / `"false"` | `"true"` | Show Bloom brightness HUD when brightness changes.                       |
+| `bloom-brightness-overlay-enabled` | `"true"` / `"false"` | `"true"` | Show Orbix brightness HUD when brightness changes.                       |
 | `bloom-brightness-edge-enabled`    | `"true"` / `"false"` | `"true"` | Trigger brightness HUD by hovering the right screen edge.                |
 
 ### Appearance
@@ -150,21 +150,21 @@ Example:
 
 ## Event System
 
-Bloom uses two Tauri events for settings synchronization:
+Orbix uses two Tauri events for settings synchronization:
 
 ### `settings-changed`
 
 - **Emitted by:** `save_setting` command (frontend or backend)
 - **Payload:** `{ "key": "bloom-...", "value": ... }`
-- **Purpose:** Broadcasts changes made through the Bloom UI to all windows
-- **Key format:** Bloom-prefixed keys as-is (e.g. `"bloom-dock-mode"`)
+- **Purpose:** Broadcasts changes made through the Orbix UI to all windows
+- **Key format:** Orbix-prefixed keys as-is (e.g. `"bloom-dock-mode"`)
 
 ### `settings-external-changed`
 
 - **Emitted by:** File watcher (detects external edits to `settings.json`)
 - **Payload:** `{ "key": "bloom-...", "value": ... }` or `{ "key": "bloom-...", "value": null }` for removed keys
 - **Purpose:** Broadcasts changes made by external editors (VS Code, notepad, scripts)
-- **Key format:** Bloom-prefixed keys as-is
+- **Key format:** Orbix-prefixed keys as-is
 - **Behavior:** Also syncs values to `localStorage` for instant frontend reads
 
 ### Flow
@@ -209,5 +209,5 @@ with open(path, 'w') as f: json.dump(settings, f)
 - The `useSettingsSync` hook auto-converts `"true"` / `"false"` strings to booleans.
 - `auto-hide` mode values in `bloom-dock-mode` and `bloom-notch-mode` are legacy aliases for `smart` — they are mapped automatically.
 - Changing `bloom-scale` triggers AppBar re-registration to adjust reserved screen space.
-- Settings → General → Reset to Defaults removes every `bloom-` key from `settings.json` and `localStorage` (except the `bloom-first-run` / `bloom-app-version` lifecycle sentinels), then restarts Bloom. Pinned apps (`pinned_apps.json`) and uploaded icons (`custom_icons/`) are preserved.
+- Settings → General → Reset to Defaults removes every `bloom-` key from `settings.json` and `localStorage` (except the `bloom-first-run` / `bloom-app-version` lifecycle sentinels), then restarts Orbix. Pinned apps (`pinned_apps.json`) and uploaded icons (`custom_icons/`) are preserved.
 - Theme changes (`bloom-theme-*`) are applied by reading all theme values from `localStorage` and calling `applyTheme()` — the theme system depends on all five theme keys being in sync.

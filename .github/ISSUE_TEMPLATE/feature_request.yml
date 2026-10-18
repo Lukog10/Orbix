@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea or improvement for Bloom. Please discuss it here before opening a PR.
+description: Suggest an idea or improvement for Orbix. Please discuss it here before opening a PR.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -8,14 +8,14 @@ body:
     id: idea
     attributes:
       label: What's your idea?
-      description: What should Bloom do, and what problem does it solve for you?
+      description: What should Orbix do, and what problem does it solve for you?
     validations:
       required: true
 
   - type: dropdown
     id: area
     attributes:
-      label: Which part of Bloom does this relate to?
+      label: Which part of Orbix does this relate to?
       options:
         - Dock
         - Notch
