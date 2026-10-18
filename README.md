@@ -215,6 +215,7 @@ Download the latest pre-built standalone release bundle:
 
 - **[Latest Release: Orbix v0.1.0 (Beta)](https://github.com/Lukog10/Orbix/releases/tag/v0.1.0)**
 - **[Direct Download: Orbix-v0.1.0-beta-windows-x64.zip](https://github.com/Lukog10/Orbix/releases/download/v0.1.0/Orbix-v0.1.0-beta-windows-x64.zip)**
+- **[Direct Download: Standalone Orbix.exe](https://github.com/Lukog10/Orbix/releases/download/v0.1.0/Orbix.exe)**
 
 #### Quick Installation
 1. Download `Orbix-v0.1.0-beta-windows-x64.zip` from the release link above.
