@@ -95,8 +95,8 @@ pub fn get_wallpapers(folder: Option<String>) -> Result<Vec<WallpaperItem>, Stri
     }
 
     let mut items = Vec::new();
-    collect_images_from_dir(&target_dir, &mut items, 0, 2);
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    collect_images_from_dir(&target_dir, &mut items);
+    items.sort_by_key(|a| a.name.to_lowercase());
     Ok(items)
 }
 
@@ -123,12 +123,9 @@ fn get_default_wallpaper_dir() -> PathBuf {
     PathBuf::from("C:\\Windows\\Web\\Wallpaper")
 }
 
-fn collect_images_from_dir(
-    dir: &Path,
-    out: &mut Vec<WallpaperItem>,
-    depth: usize,
-    max_depth: usize,
-) {
+/// Collect images directly in the specified folder (non-recursive).
+/// Sub-folders are strictly excluded so the user only sees images in the current folder.
+fn collect_images_from_dir(dir: &Path, out: &mut Vec<WallpaperItem>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -151,10 +148,27 @@ fn collect_images_from_dir(
                     });
                 }
             }
-        } else if path.is_dir() && depth < max_depth {
-            collect_images_from_dir(&path, out, depth + 1, max_depth);
         }
     }
+}
+
+fn get_wallpaper_cache_dir() -> PathBuf {
+    let base = if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        PathBuf::from(local_app_data).join("Orbix").join("wallpaper_cache")
+    } else {
+        std::env::temp_dir().join("Orbix_wallpaper_cache")
+    };
+    let _ = std::fs::create_dir_all(&base);
+    base
+}
+
+fn get_cache_key(path: &str, size: u64, mtime: u64) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    path.hash(&mut hasher);
+    size.hash(&mut hasher);
+    mtime.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
 }
 
 static WALLPAPER_CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, String>>> =
@@ -180,6 +194,39 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
         return None;
     }
 
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let cache_dir = get_wallpaper_cache_dir();
+    let cache_key = get_cache_key(&path, meta.len(), mtime);
+    let cache_file_jpg = cache_dir.join(format!("{}.jpg", cache_key));
+    let cache_file_png = cache_dir.join(format!("{}.png", cache_key));
+
+    // Fast-path: Check persistent disk cache before any heavy image decode
+    if cache_file_jpg.exists() {
+        if let Ok(bytes) = std::fs::read(&cache_file_jpg) {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            let data_url = format!("data:image/jpeg;base64,{}", b64);
+            if let Ok(mut guard) = cache.lock() {
+                guard.insert(path, data_url.clone());
+            }
+            return Some(data_url);
+        }
+    } else if cache_file_png.exists() {
+        if let Ok(bytes) = std::fs::read(&cache_file_png) {
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            let data_url = format!("data:image/png;base64,{}", b64);
+            if let Ok(mut guard) = cache.lock() {
+                guard.insert(path, data_url.clone());
+            }
+            return Some(data_url);
+        }
+    }
+
     let mut limits = image::Limits::default();
     limits.max_image_width = Some(8192);
     limits.max_image_height = Some(8192);
@@ -191,8 +238,9 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
         .ok()?;
     reader.limits(limits);
     let img = reader.decode().ok()?;
-    // High-resolution 1600x900 thumbnail preserves crisp original quality on all displays
-    let thumb = img.thumbnail(1600, 900);
+
+    // 800x450 Retina thumbnail preserves crisp quality without excessive memory usage
+    let thumb = img.thumbnail(800, 450);
 
     let result_data_url = if img.color().has_alpha() {
         let mut png_bytes: Vec<u8> = Vec::new();
@@ -202,13 +250,15 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
                 image::ImageFormat::Png,
             )
             .ok()?;
+        let _ = std::fs::write(&cache_file_png, &png_bytes);
         let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
         format!("data:image/png;base64,{}", b64)
     } else {
         let mut jpeg_bytes: Vec<u8> = Vec::new();
         let rgb = thumb.to_rgb8();
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 92);
+        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 85);
         encoder.encode_image(&rgb).ok()?;
+        let _ = std::fs::write(&cache_file_jpg, &jpeg_bytes);
         let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
         format!("data:image/jpeg;base64,{}", b64)
     };
