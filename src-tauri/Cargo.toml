@@ -1,6 +1,6 @@
 [package]
 name = "orbix"
-version = "0.1.0"
+version = "0.1.1"
 description = "Orbix — Dynamic island notch and floating dock for Windows"
 authors = ["Orbix Contributors", "Lukog10"]
 edition = "2021"
