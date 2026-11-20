@@ -58,7 +58,9 @@ A robust background worker that cycles wallpapers smoothly without consuming act
 
 #### Settings Keys:
 - `bloom-wallpaper-slideshow-enabled`: `"true"` | `"false"` (default: `"false"`)
-- `bloom-wallpaper-slideshow-interval`: `"60"` | `"300"` | `"900"` | `"1800"` | `"3600"` | `"21600"` | `"86400"` (seconds; default `"900"` = 15m)
+- `bloom-wallpaper-slideshow-value`: string number (e.g. `"15"`, `"30"`, `"2"`; default `"15"`)
+- `bloom-wallpaper-slideshow-unit`: `"seconds"` | `"minutes"` | `"hours"` (default: `"minutes"`)
+- `bloom-wallpaper-slideshow-interval`: integer seconds computed dynamically from `value * multiplier` for backend consumption (default `"900"`)
 - `bloom-wallpaper-slideshow-order`: `"shuffle"` | `"sequential"` (default: `"shuffle"`)
 - `bloom-wallpaper-fit`: `"fill"` | `"fit"` | `"stretch"` | `"center"` | `"span"` (default: `"fill"`)
 
@@ -75,12 +77,19 @@ A robust background worker that cycles wallpapers smoothly without consuming act
   5. Emits `app.emit("wallpaper-changed", current_path)` to keep the frontend checkmark badge synchronized.
 - Changing interval or pausing slideshow immediately unparks/resets the worker thread.
 
-#### Frontend UI:
-- **Carousel Header**: A clean Play / Pause button (`<Play size={13} />` / `<Pause size={13} />`) next to the refresh button. Clicking toggles slideshow on/off immediately with tooltip indicating current status and next change interval.
+#### Frontend UI & Visual Theme:
+- **Theme & Brand Colors**: All accent elements use **Orbix Brand Violet** (`#8B5CF6` / `#7C3AED`, with `#A78BFA` highlights), replacing legacy mint green:
+  - Header folder pill: rich violet gradient with smooth glow.
+  - Active wallpaper badge: vibrant violet circle with white checkmark.
+  - Custom framing viewport border: dashed violet boundary guide.
+  - Framing "Apply to Desktop" button: high-contrast brand violet action pill.
+- **Carousel Header**: A clean Play / Pause button (`<Play size={13} />` / `<Pause size={13} />`) with dynamic duration badge (e.g. `[ ▶ Slideshow (15m) ]`).
 - **Settings Tab (`src/settings/NotchTab.tsx`)**:
   - Toggle switch: "Wallpaper Slideshow"
-  - Dropdown: "Cycle Interval" (1 min, 5 min, 15 min, 30 min, 1 hr, 6 hr, 24 hr)
-  - Dropdown: "Playback Order" (Shuffle / Sequential)
+  - **Dynamic Split Cycle Interval**:
+    - **Number Bar**: An editable integer input field (e.g. `[ 15 ]`, min: 1, max: 999).
+    - **Unit Dropdown**: Select between `Seconds`, `Minutes`, and `Hours`.
+  - Radio/Toggle: "Playback Order" (Shuffle / Sequential)
   - Dropdown: "Default Fit Mode" (Fill, Fit, Stretch, Center, Span)
 
 ---
@@ -129,3 +138,4 @@ Currently, switching directories requires launching the native Windows folder pi
    - Open a mobile portrait wallpaper (e.g. 1080x1920), open Custom Framing, pan to top or bottom subject, apply, and verify desktop displays the exact cropped region.
    - Enable Slideshow at 1 min interval, verify automatic rotation in sequential and shuffle modes.
    - Switch folders using the new presets dropdown and test adding/removing custom directories.
+
