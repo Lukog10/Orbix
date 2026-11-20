@@ -51,6 +51,21 @@ export function useSettings() {
 	const [appsEnabled, setAppsEnabled] = useState(true);
 	const [powerModeEnabled, setPowerModeEnabled] = useState(true);
 	const [wallpaperModeEnabled, setWallpaperModeEnabled] = useState(true);
+	const [wallpaperSlideshowEnabled, setWallpaperSlideshowEnabled] = useState(
+		() => localStorage.getItem("bloom-wallpaper-slideshow-enabled") === "true"
+	);
+	const [wallpaperSlideshowValue, setWallpaperSlideshowValue] = useState(
+		() => localStorage.getItem("bloom-wallpaper-slideshow-value") || "15"
+	);
+	const [wallpaperSlideshowUnit, setWallpaperSlideshowUnit] = useState(
+		() => localStorage.getItem("bloom-wallpaper-slideshow-unit") || "minutes"
+	);
+	const [wallpaperSlideshowOrder, setWallpaperSlideshowOrder] = useState(
+		() => localStorage.getItem("bloom-wallpaper-slideshow-order") || "shuffle"
+	);
+	const [wallpaperFit, setWallpaperFit] = useState(
+		() => localStorage.getItem("bloom-wallpaper-fit") || "fill"
+	);
 	const [timerSoundEnabled, setTimerSoundEnabled] = useState(
 		() => localStorage.getItem("bloom-timer-sound-enabled") !== "false"
 	);
@@ -525,6 +540,44 @@ export function useSettings() {
 		const next = !wallpaperModeEnabled;
 		setWallpaperModeEnabled(next);
 		saveSetting("bloom-wallpaper-mode-enabled", String(next));
+	};
+
+	const toggleWallpaperSlideshow = () => {
+		const next = !wallpaperSlideshowEnabled;
+		setWallpaperSlideshowEnabled(next);
+		saveSetting("bloom-wallpaper-slideshow-enabled", String(next));
+		invoke("toggle_slideshow", { enabled: next }).catch(() => {});
+	};
+
+	const handleWallpaperSlideshowValueChange = (val: string) => {
+		setWallpaperSlideshowValue(val);
+		saveSetting("bloom-wallpaper-slideshow-value", val);
+		const num = Math.max(1, parseInt(val, 10) || 15);
+		const mult =
+			wallpaperSlideshowUnit === "hours"
+				? 3600
+				: wallpaperSlideshowUnit === "seconds"
+					? 1
+					: 60;
+		saveSetting("bloom-wallpaper-slideshow-interval", String(num * mult));
+	};
+
+	const handleWallpaperSlideshowUnitChange = (unit: string) => {
+		setWallpaperSlideshowUnit(unit);
+		saveSetting("bloom-wallpaper-slideshow-unit", unit);
+		const num = Math.max(1, parseInt(wallpaperSlideshowValue, 10) || 15);
+		const mult = unit === "hours" ? 3600 : unit === "seconds" ? 1 : 60;
+		saveSetting("bloom-wallpaper-slideshow-interval", String(num * mult));
+	};
+
+	const handleWallpaperSlideshowOrderChange = (order: string) => {
+		setWallpaperSlideshowOrder(order);
+		saveSetting("bloom-wallpaper-slideshow-order", order);
+	};
+
+	const handleWallpaperFitChange = (fit: string) => {
+		setWallpaperFit(fit);
+		saveSetting("bloom-wallpaper-fit", fit);
 	};
 
 	const toggleTimerSound = () => {
@@ -1019,6 +1072,16 @@ export function useSettings() {
 		togglePowerMode,
 		wallpaperModeEnabled,
 		toggleWallpaperMode,
+		wallpaperSlideshowEnabled,
+		toggleWallpaperSlideshow,
+		wallpaperSlideshowValue,
+		handleWallpaperSlideshowValueChange,
+		wallpaperSlideshowUnit,
+		handleWallpaperSlideshowUnitChange,
+		wallpaperSlideshowOrder,
+		handleWallpaperSlideshowOrderChange,
+		wallpaperFit,
+		handleWallpaperFitChange,
 		notchControlSavings,
 		toggleNotchControlSavings,
 		notchControlDnd,

@@ -19,7 +19,11 @@ import {
 	Plane,
 	Radio,
 	Network,
-	Headphones
+	Headphones,
+	Play,
+	Clock,
+	Shuffle,
+	Maximize2
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
 import { StatusWidgetConfig } from "../components/StatusWidgetConfig";
@@ -50,6 +54,16 @@ interface NotchTabProps {
 	togglePowerMode: () => void;
 	wallpaperModeEnabled: boolean;
 	toggleWallpaperMode: () => void;
+	wallpaperSlideshowEnabled?: boolean;
+	toggleWallpaperSlideshow?: () => void;
+	wallpaperSlideshowValue?: string;
+	handleWallpaperSlideshowValueChange?: (val: string) => void;
+	wallpaperSlideshowUnit?: string;
+	handleWallpaperSlideshowUnitChange?: (unit: string) => void;
+	wallpaperSlideshowOrder?: string;
+	handleWallpaperSlideshowOrderChange?: (order: string) => void;
+	wallpaperFit?: string;
+	handleWallpaperFitChange?: (fit: string) => void;
 	timerSoundEnabled: boolean;
 	toggleTimerSound: () => void;
 	musicModeEnabled: boolean;
@@ -109,6 +123,16 @@ export function NotchTab({
 	togglePowerMode,
 	wallpaperModeEnabled,
 	toggleWallpaperMode,
+	wallpaperSlideshowEnabled = false,
+	toggleWallpaperSlideshow,
+	wallpaperSlideshowValue = "15",
+	handleWallpaperSlideshowValueChange,
+	wallpaperSlideshowUnit = "minutes",
+	handleWallpaperSlideshowUnitChange,
+	wallpaperSlideshowOrder = "shuffle",
+	handleWallpaperSlideshowOrderChange,
+	wallpaperFit = "fill",
+	handleWallpaperFitChange,
 	timerSoundEnabled,
 	toggleTimerSound,
 	musicModeEnabled,
@@ -202,6 +226,84 @@ export function NotchTab({
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
+
+				{wallpaperModeEnabled && (
+					<>
+						<SettingRow
+							icon={Play}
+							label="Wallpaper Slideshow"
+							desc="Automatically cycle wallpapers in the background"
+						>
+							<label className="toggle-switch">
+								<input
+									type="checkbox"
+									checked={wallpaperSlideshowEnabled}
+									onChange={toggleWallpaperSlideshow}
+								/>
+								<span className="slider"></span>
+							</label>
+						</SettingRow>
+
+						<SettingRow
+							icon={Clock}
+							label="Cycle Interval"
+							desc="Set custom duration (e.g. 30 seconds, 15 minutes, 2 hours)"
+						>
+							<div className="wallpaper-interval-controls">
+								<input
+									type="number"
+									min="1"
+									max="999"
+									value={wallpaperSlideshowValue}
+									onChange={(e) => handleWallpaperSlideshowValueChange?.(e.target.value)}
+									className="wallpaper-interval-number-input"
+								/>
+								<select
+									value={wallpaperSlideshowUnit}
+									onChange={(e) => handleWallpaperSlideshowUnitChange?.(e.target.value)}
+									className="wallpaper-interval-unit-select"
+								>
+									<option value="seconds">Seconds</option>
+									<option value="minutes">Minutes</option>
+									<option value="hours">Hours</option>
+								</select>
+							</div>
+						</SettingRow>
+
+						<SettingRow
+							icon={Shuffle}
+							label="Cycle Order"
+							desc="Shuffle randomly or rotate in alphabetical order"
+						>
+							<select
+								value={wallpaperSlideshowOrder}
+								onChange={(e) => handleWallpaperSlideshowOrderChange?.(e.target.value)}
+								className="settings-select"
+							>
+								<option value="shuffle">Shuffle (Random)</option>
+								<option value="sequential">Sequential</option>
+							</select>
+						</SettingRow>
+
+						<SettingRow
+							icon={Maximize2}
+							label="Default Placement Style"
+							desc="Windows desktop wallpaper fit style"
+						>
+							<select
+								value={wallpaperFit}
+								onChange={(e) => handleWallpaperFitChange?.(e.target.value)}
+								className="settings-select"
+							>
+								<option value="fill">Fill (Crop to screen)</option>
+								<option value="fit">Fit (Letterbox)</option>
+								<option value="stretch">Stretch</option>
+								<option value="center">Center</option>
+								<option value="span">Span</option>
+							</select>
+						</SettingRow>
+					</>
+				)}
 
 				{calendarEnabled && (
 					<SettingRow

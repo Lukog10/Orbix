@@ -175,6 +175,16 @@ function SettingsApp() {
 							togglePowerMode={settings.togglePowerMode}
 							wallpaperModeEnabled={settings.wallpaperModeEnabled}
 							toggleWallpaperMode={settings.toggleWallpaperMode}
+							wallpaperSlideshowEnabled={settings.wallpaperSlideshowEnabled}
+							toggleWallpaperSlideshow={settings.toggleWallpaperSlideshow}
+							wallpaperSlideshowValue={settings.wallpaperSlideshowValue}
+							handleWallpaperSlideshowValueChange={settings.handleWallpaperSlideshowValueChange}
+							wallpaperSlideshowUnit={settings.wallpaperSlideshowUnit}
+							handleWallpaperSlideshowUnitChange={settings.handleWallpaperSlideshowUnitChange}
+							wallpaperSlideshowOrder={settings.wallpaperSlideshowOrder}
+							handleWallpaperSlideshowOrderChange={settings.handleWallpaperSlideshowOrderChange}
+							wallpaperFit={settings.wallpaperFit}
+							handleWallpaperFitChange={settings.handleWallpaperFitChange}
 							timerSoundEnabled={settings.timerSoundEnabled}
 							toggleTimerSound={settings.toggleTimerSound}
 							musicModeEnabled={settings.musicModeEnabled}

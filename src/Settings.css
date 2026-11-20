@@ -715,6 +715,52 @@ input:checked + .slider:before {
 	color: var(--bloom-text, white);
 }
 
+.wallpaper-interval-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.wallpaper-interval-number-input {
+	width: 52px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	background: var(--bloom-group-bg, rgba(255, 255, 255, 0.08));
+	border: 1px solid var(--bloom-border, rgba(255, 255, 255, 0.12));
+	color: var(--bloom-text, white);
+	font-size: 12px;
+	font-family: monospace;
+	font-weight: 600;
+	text-align: center;
+	outline: none;
+	transition: border-color 0.15s ease;
+}
+
+.wallpaper-interval-number-input:focus {
+	border-color: var(--bloom-accent, #6B5290);
+}
+
+.wallpaper-interval-unit-select {
+	padding: 4px 8px;
+	border-radius: 6px;
+	background: var(--bloom-group-bg, rgba(255, 255, 255, 0.08));
+	border: 1px solid var(--bloom-border, rgba(255, 255, 255, 0.12));
+	color: var(--bloom-text, white);
+	font-size: 11.5px;
+	outline: none;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+}
+
+.wallpaper-interval-unit-select:focus {
+	border-color: var(--bloom-accent, #6B5290);
+}
+
+.wallpaper-interval-unit-select option {
+	background: var(--bloom-bg-expanded, #1a1a1a);
+	color: var(--bloom-text, white);
+}
+
 .setting-item.action {
 	cursor: pointer;
 	transition: background 0.2s;
