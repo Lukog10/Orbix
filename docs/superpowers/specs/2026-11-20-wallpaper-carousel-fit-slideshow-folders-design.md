@@ -78,11 +78,11 @@ A robust background worker that cycles wallpapers smoothly without consuming act
 - Changing interval or pausing slideshow immediately unparks/resets the worker thread.
 
 #### Frontend UI & Visual Theme:
-- **Theme & Brand Colors**: All accent elements use **Orbix Brand Violet** (`#8B5CF6` / `#7C3AED`, with `#A78BFA` highlights), replacing legacy mint green:
-  - Header folder pill: rich violet gradient with smooth glow.
-  - Active wallpaper badge: vibrant violet circle with white checkmark.
-  - Custom framing viewport border: dashed violet boundary guide.
-  - Framing "Apply to Desktop" button: high-contrast brand violet action pill.
+- **Theme & Brand Colors**: All accent elements use **Orbix Brand Violet** (`#6B5290` / `var(--bloom-accent, #6B5290)`, with `#7E62A8` hover and `#9D7ECF` highlights), matching the exact brand theme color configured in Orbix Settings:
+  - Header folder pill: rich brand violet gradient (`#6B5290` to `#5A437C`) with smooth specular glow.
+  - Active wallpaper badge: brand violet circle (`#6B5290`) with white checkmark.
+  - Custom framing viewport border: dashed brand violet boundary guide (`#8B6DB8`).
+  - Framing "Apply to Desktop" button: high-contrast brand violet action pill (`#6B5290`).
 - **Carousel Header**: A clean Play / Pause button (`<Play size={13} />` / `<Pause size={13} />`) with dynamic duration badge (e.g. `[ ▶ Slideshow (15m) ]`).
 - **Settings Tab (`src/settings/NotchTab.tsx`)**:
   - Toggle switch: "Wallpaper Slideshow"
