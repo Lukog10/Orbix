@@ -23,9 +23,13 @@ import {
 	Play,
 	Clock,
 	Shuffle,
+	ListOrdered,
 	Maximize2
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
+import { CycleIntervalPicker } from "./CycleIntervalPicker";
+import GlideSelect from "../components/common/GlideSelect";
+import JellyRadio from "../components/common/JellyRadio";
 import { StatusWidgetConfig } from "../components/StatusWidgetConfig";
 import type { WidgetConfig } from "./types";
 
@@ -166,15 +170,18 @@ export function NotchTab({
 			<div className="setting-group-label">Notch</div>
 			<div className="setting-group">
 				<SettingRow icon={PanelTop} label="Notch Behavior" desc="Choose how the notch appears">
-					<select
-						className="settings-select"
+					<GlideSelect
 						value={notchMode}
-						onChange={(e) => setNotchModeValue(e.target.value)}
-					>
-						<option value="fixed">Fixed</option>
-						<option value="smart">Smart</option>
-						<option value="peek">Peek</option>
-					</select>
+						options={[
+							{ value: "fixed", label: "Fixed", tag: "Always On" },
+							{ value: "smart", label: "Smart", tag: "Auto-Hide" },
+							{ value: "peek", label: "Peek", tag: "Edge Hover" }
+						]}
+						onChange={(val) => setNotchModeValue(val)}
+						size="sm"
+						menuWidth={170}
+						align="right"
+					/>
 				</SettingRow>
 
 				{notchMode !== "fixed" && (
@@ -206,21 +213,33 @@ export function NotchTab({
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Search} label="Apps & Search" desc="Search apps, files, folders and snippets">
+				<SettingRow
+					icon={Search}
+					label="Apps & Search"
+					desc="Search apps, files, folders and snippets"
+				>
 					<label className="toggle-switch">
 						<input type="checkbox" checked={appsEnabled ?? true} onChange={toggleApps} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Power} label="Power Menu" desc="Hold to shutdown, restart, sleep, lock or switch user">
+				<SettingRow
+					icon={Power}
+					label="Power Menu"
+					desc="Hold to shutdown, restart, sleep, lock or switch user"
+				>
 					<label className="toggle-switch">
 						<input type="checkbox" checked={powerModeEnabled} onChange={togglePowerMode} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Image} label="Wallpaper Carousel" desc="Browse and set desktop wallpapers from the notch">
+				<SettingRow
+					icon={Image}
+					label="Wallpaper Carousel"
+					desc="Browse and set desktop wallpapers from the notch"
+				>
 					<label className="toggle-switch">
 						<input type="checkbox" checked={wallpaperModeEnabled} onChange={toggleWallpaperMode} />
 						<span className="slider"></span>
@@ -247,42 +266,46 @@ export function NotchTab({
 						<SettingRow
 							icon={Clock}
 							label="Cycle Interval"
-							desc="Set custom duration (e.g. 30 seconds, 15 minutes, 2 hours)"
+							desc={
+								wallpaperSlideshowEnabled
+									? `Rotates wallpaper every ${wallpaperSlideshowValue || "15"} ${wallpaperSlideshowUnit || "minutes"}`
+									: "Set custom duration between automatic wallpaper transitions"
+							}
 						>
-							<div className="wallpaper-interval-controls">
-								<input
-									type="number"
-									min="1"
-									max="999"
-									value={wallpaperSlideshowValue}
-									onChange={(e) => handleWallpaperSlideshowValueChange?.(e.target.value)}
-									className="wallpaper-interval-number-input"
-								/>
-								<select
-									value={wallpaperSlideshowUnit}
-									onChange={(e) => handleWallpaperSlideshowUnitChange?.(e.target.value)}
-									className="wallpaper-interval-unit-select"
-								>
-									<option value="seconds">Seconds</option>
-									<option value="minutes">Minutes</option>
-									<option value="hours">Hours</option>
-								</select>
-							</div>
+							<CycleIntervalPicker
+								value={wallpaperSlideshowValue || "15"}
+								unit={wallpaperSlideshowUnit || "minutes"}
+								onValueChange={(val) => handleWallpaperSlideshowValueChange?.(val)}
+								onUnitChange={(unit) => handleWallpaperSlideshowUnitChange?.(unit)}
+							/>
 						</SettingRow>
 
 						<SettingRow
 							icon={Shuffle}
 							label="Cycle Order"
-							desc="Shuffle randomly or rotate in alphabetical order"
+							desc="Shuffle randomly or rotate sequentially"
 						>
-							<select
-								value={wallpaperSlideshowOrder}
-								onChange={(e) => handleWallpaperSlideshowOrderChange?.(e.target.value)}
-								className="settings-select"
-							>
-								<option value="shuffle">Shuffle (Random)</option>
-								<option value="sequential">Sequential</option>
-							</select>
+							<JellyRadio
+								value={wallpaperSlideshowOrder || "shuffle"}
+								items={[
+									{
+										value: "shuffle",
+										label: "Shuffle",
+										icon: <Shuffle size={10} strokeWidth={2.4} />
+									},
+									{
+										value: "sequential",
+										label: "Sequential",
+										icon: <ListOrdered size={10} strokeWidth={2.4} />
+									}
+								]}
+								onChange={(val) => handleWallpaperSlideshowOrderChange?.(val)}
+								size="sm"
+								gap={4}
+								radius={6}
+								swell={0.08}
+								barge={2.5}
+							/>
 						</SettingRow>
 
 						<SettingRow
@@ -290,17 +313,20 @@ export function NotchTab({
 							label="Default Placement Style"
 							desc="Windows desktop wallpaper fit style"
 						>
-							<select
+							<GlideSelect
 								value={wallpaperFit}
-								onChange={(e) => handleWallpaperFitChange?.(e.target.value)}
-								className="settings-select"
-							>
-								<option value="fill">Fill (Crop to screen)</option>
-								<option value="fit">Fit (Letterbox)</option>
-								<option value="stretch">Stretch</option>
-								<option value="center">Center</option>
-								<option value="span">Span</option>
-							</select>
+								options={[
+									{ value: "fill", label: "Fill", tag: "Crop" },
+									{ value: "fit", label: "Fit", tag: "Letterbox" },
+									{ value: "stretch", label: "Stretch", tag: "Scale" },
+									{ value: "center", label: "Center", tag: "1:1" },
+									{ value: "span", label: "Span", tag: "Multi" }
+								]}
+								onChange={(val) => handleWallpaperFitChange?.(val)}
+								size="sm"
+								menuWidth={176}
+								align="right"
+							/>
 						</SettingRow>
 					</>
 				)}
@@ -479,44 +505,84 @@ export function NotchTab({
 
 			<div className="setting-group-label">Quick Controls & Status</div>
 			<div className="setting-group">
-				<SettingRow icon={Zap} label="Energy Saver" desc="Show battery/energy saver button in control center">
+				<SettingRow
+					icon={Zap}
+					label="Energy Saver"
+					desc="Show battery/energy saver button in control center"
+				>
 					<label className="toggle-switch">
-						<input type="checkbox" checked={notchControlSavings} onChange={toggleNotchControlSavings} />
+						<input
+							type="checkbox"
+							checked={notchControlSavings}
+							onChange={toggleNotchControlSavings}
+						/>
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Moon} label="Do Not Disturb" desc="Show DND toggle button in control center">
+				<SettingRow
+					icon={Moon}
+					label="Do Not Disturb"
+					desc="Show DND toggle button in control center"
+				>
 					<label className="toggle-switch">
 						<input type="checkbox" checked={notchControlDnd} onChange={toggleNotchControlDnd} />
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Plane} label="Airplane Mode" desc="Show flight/airplane mode button in control center">
+				<SettingRow
+					icon={Plane}
+					label="Airplane Mode"
+					desc="Show flight/airplane mode button in control center"
+				>
 					<label className="toggle-switch">
-						<input type="checkbox" checked={notchControlAirplane} onChange={toggleNotchControlAirplane} />
+						<input
+							type="checkbox"
+							checked={notchControlAirplane}
+							onChange={toggleNotchControlAirplane}
+						/>
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Radio} label="Mobile Hotspot" desc="Show hotspot button in control center">
+				<SettingRow
+					icon={Radio}
+					label="Mobile Hotspot"
+					desc="Show hotspot button in control center"
+				>
 					<label className="toggle-switch">
-						<input type="checkbox" checked={notchControlHotspot} onChange={toggleNotchControlHotspot} />
+						<input
+							type="checkbox"
+							checked={notchControlHotspot}
+							onChange={toggleNotchControlHotspot}
+						/>
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
 				<SettingRow icon={Network} label="Ethernet" desc="Show ethernet button in control center">
 					<label className="toggle-switch">
-						<input type="checkbox" checked={notchControlEthernet} onChange={toggleNotchControlEthernet} />
+						<input
+							type="checkbox"
+							checked={notchControlEthernet}
+							onChange={toggleNotchControlEthernet}
+						/>
 						<span className="slider"></span>
 					</label>
 				</SettingRow>
 
-				<SettingRow icon={Headphones} label="Audio Device Alerts" desc="Show notification and status when headphones or microphones connect">
+				<SettingRow
+					icon={Headphones}
+					label="Audio Device Alerts"
+					desc="Show notification and status when headphones or microphones connect"
+				>
 					<label className="toggle-switch">
-						<input type="checkbox" checked={notchAudioIndicator} onChange={toggleNotchAudioIndicator} />
+						<input
+							type="checkbox"
+							checked={notchAudioIndicator}
+							onChange={toggleNotchAudioIndicator}
+						/>
 						<span className="slider"></span>
 					</label>
 				</SettingRow>

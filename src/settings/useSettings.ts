@@ -301,8 +301,16 @@ export function useSettings() {
 			apply(getVal("bloom-theme-mode"), setThemeMode, (v) => v);
 			apply(getVal("bloom-theme-color"), setThemeColor, (v) => v);
 			apply(getVal("bloom-theme-opacity"), setThemeOpacity, parseFloat);
-			apply(getVal("bloom-notch-opacity") ?? getVal("bloom-theme-opacity"), setNotchOpacity, parseFloat);
-			apply(getVal("bloom-dock-opacity") ?? getVal("bloom-theme-opacity"), setDockOpacity, parseFloat);
+			apply(
+				getVal("bloom-notch-opacity") ?? getVal("bloom-theme-opacity"),
+				setNotchOpacity,
+				parseFloat
+			);
+			apply(
+				getVal("bloom-dock-opacity") ?? getVal("bloom-theme-opacity"),
+				setDockOpacity,
+				parseFloat
+			);
 			apply(getVal("bloom-theme-saturation"), setThemeSaturation, parseFloat);
 			apply(getVal("bloom-theme-brightness"), setThemeBrightness, parseFloat);
 
@@ -554,11 +562,7 @@ export function useSettings() {
 		saveSetting("bloom-wallpaper-slideshow-value", val);
 		const num = Math.max(1, parseInt(val, 10) || 15);
 		const mult =
-			wallpaperSlideshowUnit === "hours"
-				? 3600
-				: wallpaperSlideshowUnit === "seconds"
-					? 1
-					: 60;
+			wallpaperSlideshowUnit === "hours" ? 3600 : wallpaperSlideshowUnit === "seconds" ? 1 : 60;
 		saveSetting("bloom-wallpaper-slideshow-interval", String(num * mult));
 	};
 

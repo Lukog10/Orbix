@@ -10,17 +10,17 @@
 
 <!-- ✏️ FILL THIS IN for your project. Delete example rows, add your own. -->
 
-| Key | Value |
-|---|---|
-| **App name** | <!-- e.g. MyApp --> |
-| **Platform** | <!-- e.g. Next.js 15 / React 19 (Web) --> |
-| **Language** | <!-- e.g. TypeScript 5.x --> |
-| **Backend** | <!-- e.g. Supabase, Firebase, Express, Django --> |
-| **Database** | <!-- e.g. PostgreSQL, SQLite, MongoDB --> |
-| **Styling** | <!-- e.g. Tailwind CSS, CSS Modules, styled-components --> |
-| **State** | <!-- e.g. Zustand, Redux, React Context --> |
-| **Testing** | <!-- e.g. Vitest, Jest, Playwright --> |
-| **Package Manager** | <!-- e.g. npm, pnpm, bun --> |
+| Key                 | Value                                                      |
+| ------------------- | ---------------------------------------------------------- |
+| **App name**        | <!-- e.g. MyApp -->                                        |
+| **Platform**        | <!-- e.g. Next.js 15 / React 19 (Web) -->                  |
+| **Language**        | <!-- e.g. TypeScript 5.x -->                               |
+| **Backend**         | <!-- e.g. Supabase, Firebase, Express, Django -->          |
+| **Database**        | <!-- e.g. PostgreSQL, SQLite, MongoDB -->                  |
+| **Styling**         | <!-- e.g. Tailwind CSS, CSS Modules, styled-components --> |
+| **State**           | <!-- e.g. Zustand, Redux, React Context -->                |
+| **Testing**         | <!-- e.g. Vitest, Jest, Playwright -->                     |
+| **Package Manager** | <!-- e.g. npm, pnpm, bun -->                               |
 
 ---
 
@@ -32,32 +32,32 @@ Before writing **any** code, the agent MUST check the table below and load the m
 
 ### 2.1 Frontend Tasks
 
-| User Intent | Skill to Load | Path |
-|---|---|---|
-| Build / modify a UI component or page | `building-ui` | `skills/building-ui/SKILL.md` |
-| Polish, audit, or critique existing UI/UX | `ui-review` | `skills/ui-review/SKILL.md` |
-| <!-- Add more rows --> | | |
+| User Intent                               | Skill to Load | Path                          |
+| ----------------------------------------- | ------------- | ----------------------------- |
+| Build / modify a UI component or page     | `building-ui` | `skills/building-ui/SKILL.md` |
+| Polish, audit, or critique existing UI/UX | `ui-review`   | `skills/ui-review/SKILL.md`   |
+| <!-- Add more rows -->                    |               |                               |
 
 ### 2.2 Backend / Database Tasks
 
-| User Intent | Skill to Load | Path |
-|---|---|---|
-| Database schema, queries, migrations | `database` | `skills/database/SKILL.md` |
-| API design or endpoint work | `api-design` | `skills/api-design/SKILL.md` |
-| <!-- Add more rows --> | | |
+| User Intent                          | Skill to Load | Path                         |
+| ------------------------------------ | ------------- | ---------------------------- |
+| Database schema, queries, migrations | `database`    | `skills/database/SKILL.md`   |
+| API design or endpoint work          | `api-design`  | `skills/api-design/SKILL.md` |
+| <!-- Add more rows -->               |               |                              |
 
 ### 2.3 Infrastructure / DevOps Tasks
 
-| User Intent | Skill to Load | Path |
-|---|---|---|
-| CI/CD, deployment, Docker | `devops` | `skills/devops/SKILL.md` |
-| <!-- Add more rows --> | | |
+| User Intent               | Skill to Load | Path                     |
+| ------------------------- | ------------- | ------------------------ |
+| CI/CD, deployment, Docker | `devops`      | `skills/devops/SKILL.md` |
+| <!-- Add more rows -->    |               |                          |
 
 ### 2.4 Workflow / Meta Tasks
 
-| User Intent | Skill to Load | Path |
-|---|---|---|
-| Plan or brainstorm before building a feature | `brainstorming` | `skills/brainstorming/SKILL.md` |
+| User Intent                                      | Skill to Load             | Path                                      |
+| ------------------------------------------------ | ------------------------- | ----------------------------------------- |
+| Plan or brainstorm before building a feature     | `brainstorming`           | `skills/brainstorming/SKILL.md`           |
 | Agent is truncating output or using placeholders | `full-output-enforcement` | `skills/full-output-enforcement/SKILL.md` |
 
 ---
@@ -206,13 +206,13 @@ Every user request MUST be processed through this loop. **Do not skip steps. Do 
 
 This is the **quality gate**. The agent must answer all 5 questions honestly:
 
-| # | Question | Fail Action |
-|---|---|---|
-| 1 | Does output match the user's explicit request? | Re-read the request. Fix the gap. Loop. |
-| 2 | Does it meet the loaded skill's quality bar / exit criteria? | Re-read `SKILL.md`. Fix violations. Loop. |
-| 3 | Would a staff engineer approve this? | Refactor. Remove hacks. Loop. |
-| 4 | Any visual or logic regressions? | Revert partial changes. Fix. Loop. |
-| 5 | Complete code? No truncation/placeholders? | Apply `full-output-enforcement`. Loop. |
+| #   | Question                                                     | Fail Action                               |
+| --- | ------------------------------------------------------------ | ----------------------------------------- |
+| 1   | Does output match the user's explicit request?               | Re-read the request. Fix the gap. Loop.   |
+| 2   | Does it meet the loaded skill's quality bar / exit criteria? | Re-read `SKILL.md`. Fix violations. Loop. |
+| 3   | Would a staff engineer approve this?                         | Refactor. Remove hacks. Loop.             |
+| 4   | Any visual or logic regressions?                             | Revert partial changes. Fix. Loop.        |
+| 5   | Complete code? No truncation/placeholders?                   | Apply `full-output-enforcement`. Loop.    |
 
 **If ANY answer is NO → Loop back to Step 4.**
 
@@ -227,16 +227,16 @@ This is the **quality gate**. The agent must answer all 5 questions honestly:
 
 ## 5. Anti-Patterns — NEVER Do These
 
-| Anti-Pattern | Correct Behavior |
-|---|---|
-| Skip skill loading ("I know how to do this") | Always load the matching `SKILL.md` first |
-| Skip verification ("It should work") | Always prove it works before delivering |
-| Deliver on first attempt without review | Always run the 5-question self-review |
-| Use `// ... rest of file` or `/* existing code */` | Write complete code, every time |
-| Edit code before reading the skill | Read skill first, code second |
-| Ignore `claude.md` plan-mode rules | Follow plan mode for non-trivial work |
-| Make a fix without logging the lesson | Update `tasks/lessons.md` when corrected |
-| Over-engineer trivial fixes | Match effort to task complexity |
+| Anti-Pattern                                       | Correct Behavior                          |
+| -------------------------------------------------- | ----------------------------------------- |
+| Skip skill loading ("I know how to do this")       | Always load the matching `SKILL.md` first |
+| Skip verification ("It should work")               | Always prove it works before delivering   |
+| Deliver on first attempt without review            | Always run the 5-question self-review     |
+| Use `// ... rest of file` or `/* existing code */` | Write complete code, every time           |
+| Edit code before reading the skill                 | Read skill first, code second             |
+| Ignore `claude.md` plan-mode rules                 | Follow plan mode for non-trivial work     |
+| Make a fix without logging the lesson              | Update `tasks/lessons.md` when corrected  |
+| Over-engineer trivial fixes                        | Match effort to task complexity           |
 
 ---
 
@@ -257,15 +257,19 @@ When instructions conflict, follow this precedence order (highest first):
 <!-- ✏️ CUSTOMIZE these for your project. Examples below. -->
 
 ### "Build a new page / component"
+
 → `brainstorming` → `building-ui` → `ui-review` (audit) → verify → deliver
 
 ### "Fix a database bug"
+
 → `database` → fix → verify → deliver
 
 ### "Add an API endpoint"
+
 → `api-design` + `database` → build → verify → deliver
 
 ### "Refactor or clean up code"
+
 → identify scope → plan in `todo.md` → refactor → verify → deliver
 
 ---

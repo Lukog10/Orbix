@@ -31,7 +31,12 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
 ];
 
 function SettingsApp() {
-	const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+	const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+		if (typeof window !== "undefined" && window.location.search.includes("tab=notch")) {
+			return "notch";
+		}
+		return "general";
+	});
 	const settings = useSettings();
 	const { announcement, dismissed, dismiss } = useAnnouncement();
 

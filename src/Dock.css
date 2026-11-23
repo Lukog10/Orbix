@@ -353,6 +353,36 @@ body {
 	background: white;
 	border-radius: 50%;
 	box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+	transition: all 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+/* Linux / Ubuntu Dock Launcher Glow Indicator */
+.dock-icon.is-launching::after {
+	content: "";
+	position: absolute;
+	bottom: -4px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 14px;
+	height: 3px;
+	border-radius: 999px;
+	background: var(--bloom-accent, #6b5290);
+	box-shadow:
+		0 0 8px var(--bloom-accent, #6b5290),
+		0 0 4px rgba(255, 255, 255, 0.8);
+	animation: dockLaunchPulse 0.8s ease-in-out infinite alternate;
+	pointer-events: none;
+}
+
+@keyframes dockLaunchPulse {
+	from {
+		opacity: 0.35;
+		transform: translateX(-50%) scaleX(0.7);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) scaleX(1.35);
+	}
 }
 
 .window-dots {

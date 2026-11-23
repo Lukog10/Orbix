@@ -360,7 +360,16 @@ interface ShelfItem {
 	timestamp: number;
 }
 
-type BloomMode = "music" | "calendar" | "command-center" | "announcement" | "status" | "shelf" | "power" | "wallpaper" | "apps";
+type BloomMode =
+	| "music"
+	| "calendar"
+	| "command-center"
+	| "announcement"
+	| "status"
+	| "shelf"
+	| "power"
+	| "wallpaper"
+	| "apps";
 
 // The shelf is a short-lived stash: one row, newest first, oldest evicted.
 const SHELF_MAX_ITEMS = 10;
@@ -590,9 +599,15 @@ function App() {
 	useEffect(() => {
 		if (windowLabel !== "main") return;
 
-		invoke<boolean>("get_airplane_mode_state").then(setAirplaneModeActive).catch(() => {});
-		invoke<boolean>("get_mobile_hotspot_state").then(setHotspotActive).catch(() => {});
-		invoke<boolean>("get_dnd_state").then(setDndActive).catch(() => {});
+		invoke<boolean>("get_airplane_mode_state")
+			.then(setAirplaneModeActive)
+			.catch(() => {});
+		invoke<boolean>("get_mobile_hotspot_state")
+			.then(setHotspotActive)
+			.catch(() => {});
+		invoke<boolean>("get_dnd_state")
+			.then(setDndActive)
+			.catch(() => {});
 		invoke<{
 			headphone_connected: boolean;
 			headphone_name: string;
@@ -620,10 +635,7 @@ function App() {
 
 			if (notchAudioIndicator) {
 				if (!prev.headphone_connected && next.headphone_connected) {
-					triggerAudioToast(
-						`Headphones: ${next.headphone_name || "Connected"}`,
-						"headphone"
-					);
+					triggerAudioToast(`Headphones: ${next.headphone_name || "Connected"}`, "headphone");
 				} else if (prev.headphone_connected && !next.headphone_connected) {
 					triggerAudioToast("Headphones disconnected", "headphone");
 				} else if (!prev.mic_connected && next.mic_connected) {
@@ -808,7 +820,7 @@ function App() {
 			return;
 		}
 
-				const proceedWithStartup = () => {
+		const proceedWithStartup = () => {
 			try {
 				const win = getCurrentWebviewWindow();
 				win.show().catch(() => {});
@@ -840,6 +852,7 @@ function App() {
 	const [settingsWallpaperModeEnabled, setSettingsWallpaperModeEnabled] = useState(
 		() => localStorage.getItem("bloom-wallpaper-mode-enabled") !== "false"
 	);
+	const [isWallpaperFraming, setIsWallpaperFraming] = useState(false);
 	const [settingsAppsEnabled, setSettingsAppsEnabled] = useState(
 		() => localStorage.getItem("bloom-apps-enabled") !== "false"
 	);
@@ -1145,13 +1158,24 @@ function App() {
 
 	// Bloom mode state: 'music', 'calendar', 'command-center', 'announcement', 'shelf', or 'status'
 	const [ccSubView, setCcSubView] = useState<SubViewMode>("main");
-	const [bloomMode, setBloomMode] = useState<BloomMode>("status");
+	const [bloomMode, setBloomMode] = useState<BloomMode>(() => {
+		if (typeof window !== "undefined" && window.location.search.includes("mode=wallpaper")) {
+			return "wallpaper";
+		}
+		return "status";
+	});
 
 	useEffect(() => {
 		if (bloomMode !== "command-center") return;
-		invoke<boolean>("get_airplane_mode_state").then(setAirplaneModeActive).catch(() => {});
-		invoke<boolean>("get_mobile_hotspot_state").then(setHotspotActive).catch(() => {});
-		invoke<boolean>("get_dnd_state").then(setDndActive).catch(() => {});
+		invoke<boolean>("get_airplane_mode_state")
+			.then(setAirplaneModeActive)
+			.catch(() => {});
+		invoke<boolean>("get_mobile_hotspot_state")
+			.then(setHotspotActive)
+			.catch(() => {});
+		invoke<boolean>("get_dnd_state")
+			.then(setDndActive)
+			.catch(() => {});
 	}, [bloomMode]);
 
 	// Shelf: files and selected text stashed in the notch via drag-and-drop.
@@ -1630,7 +1654,13 @@ function App() {
 		if (bloomMode === "announcement" && (!announcement || announcementDismissed)) {
 			setBloomMode(mediaInfo.has_media && settingsMusicModeEnabled ? "music" : "status");
 		}
-	}, [bloomMode, announcement, announcementDismissed, mediaInfo.has_media, settingsMusicModeEnabled]);
+	}, [
+		bloomMode,
+		announcement,
+		announcementDismissed,
+		mediaInfo.has_media,
+		settingsMusicModeEnabled
+	]);
 
 	// Window height is now kept constant to prevent rendering layout lag and sharp corners
 
@@ -1940,6 +1970,9 @@ function App() {
 		if (!settingsWallpaperModeEnabled && bloomMode === "wallpaper") {
 			setBloomMode("status");
 		}
+		if (bloomMode !== "wallpaper") {
+			setIsWallpaperFraming(false);
+		}
 	}, [settingsWallpaperModeEnabled, bloomMode]);
 
 	// Reset bloom mode when apps mode setting is disabled
@@ -1948,7 +1981,6 @@ function App() {
 			setBloomMode("status");
 		}
 	}, [settingsAppsEnabled, bloomMode]);
-
 
 	// Reset bloom mode when music mode setting is disabled
 	useEffect(() => {
@@ -2415,11 +2447,11 @@ function App() {
 					<div
 						className="passive-feature"
 						key="weather"
-						title={cityName ? `${weatherCondition} â€” ${cityName}` : weatherCondition}
+						title={cityName ? `${weatherCondition} — ${cityName}` : weatherCondition}
 					>
 						<WeatherIcon size={12} strokeWidth={2.2} />
 						<span className="label">
-							{temperature}Â°{tempUnit === "fahrenheit" ? "F" : "C"}
+							{temperature}°{tempUnit === "fahrenheit" ? "F" : "C"}
 						</span>
 					</div>
 				);
@@ -2475,7 +2507,11 @@ function App() {
 					</div>
 				);
 			case "audio":
-				if (!notchAudioIndicator || (!audioDevices.headphone_connected && !audioDevices.mic_connected)) return null;
+				if (
+					!notchAudioIndicator ||
+					(!audioDevices.headphone_connected && !audioDevices.mic_connected)
+				)
+					return null;
 				return (
 					<div
 						className="passive-feature"
@@ -2487,9 +2523,7 @@ function App() {
 						) : (
 							<Mic size={12} strokeWidth={2.2} />
 						)}
-						<span className="label">
-							{audioDevices.headphone_connected ? "Audio" : "Mic"}
-						</span>
+						<span className="label">{audioDevices.headphone_connected ? "Audio" : "Mic"}</span>
 					</div>
 				);
 			case "dnd":
@@ -2538,7 +2572,7 @@ function App() {
 		if (bloomMode === "command-center" && isHovered) return 365;
 		if (bloomMode === "apps") return isHovered ? 530 : 140;
 		if (bloomMode === "power" && isHovered) return 360;
-		if (bloomMode === "wallpaper") return 860;
+		if (bloomMode === "wallpaper") return isWallpaperFraming ? 940 : 860;
 		if (bloomMode === "status" && isHovered) {
 			const totalWidgets = statusWidgets.left.length + statusWidgets.right.length;
 			return Math.min(220 + totalWidgets * 45, 400);
@@ -2549,7 +2583,8 @@ function App() {
 			const mediaWidth = mediaLayout === "compact" ? 340 : 365;
 			return Math.max(mediaWidth, widgetsWidth);
 		}
-		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) && !isHovered) return 260;
+		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) && !isHovered)
+			return 260;
 
 		let w = 140;
 		return w;
@@ -2568,10 +2603,11 @@ function App() {
 		// Shelf expands on mode alone (no hover needed — there is no cursor
 		// hover during an OS drag) and is sized to exactly one row of tiles.
 		if (bloomMode === "shelf") return shelfItems.length > 0 ? 176 : 130;
-		if (bloomMode === "command-center") return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 332) : 36;
+		if (bloomMode === "command-center")
+			return isHovered ? (ccSubView === "wifi" ? 400 : ccSubView === "bluetooth" ? 360 : 332) : 36;
 		if (bloomMode === "apps") return isHovered ? 400 : 36;
 		if (bloomMode === "power") return isHovered ? 124 : 36;
-		if (bloomMode === "wallpaper") return 320;
+		if (bloomMode === "wallpaper") return isWallpaperFraming ? 480 : 320;
 		if (bloomMode === "status") return 36;
 		if (bloomMode === "music" && isHovered) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
@@ -2774,191 +2810,195 @@ function App() {
 									style={{ width: "100%" }}
 								>
 									<div className="main-row">
-												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) &&
-													!isHovered ? (
-														audioToast ? (
-															<motion.div
-																key="audio-pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																{audioToast.type === "headphone" ? (
-																	<Headphones size={13} strokeWidth={2.4} style={{ color: "#38bdf8" }} />
-																) : (
-																	<Mic size={13} strokeWidth={2.4} style={{ color: "#a78bfa" }} />
-																)}
-																<span className="label" style={{ color: "#f1f5f9" }}>
-																	{audioToast.message}
-																</span>
-															</motion.div>
-														) : showUpdatePulse ? (
-															<motion.div
-																key="update-pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																<GreenDownArrowIcon />
-																<span className="label" style={{ color: "#32D74B" }}>
-																	Update Available
-																</span>
-															</motion.div>
+										<AnimatePresence mode="wait">
+											{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || !!audioToast) &&
+											!isHovered ? (
+												audioToast ? (
+													<motion.div
+														key="audio-pulse-view"
+														initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+														animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+														exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+														className="power-pulse-content"
+													>
+														{audioToast.type === "headphone" ? (
+															<Headphones
+																size={13}
+																strokeWidth={2.4}
+																style={{ color: "#38bdf8" }}
+															/>
 														) : (
-															<motion.div
-																key="pulse-view"
-																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
-															>
-																{updateAvailable && <GreenDownArrowIcon />}
-																<BatteryIcon
-																	charging={isCharging}
-																	level={batteryLevel}
-																	threshold={lowBatteryThreshold}
-																/>
-																<span
-																	className="label"
-																	style={{ color: showLowBatteryPulse ? "#FF453A" : "inherit" }}
-																>
-																	{showLowBatteryPulse
-																		? "Low Battery"
-																		: isCharging
-																			? "Charging"
-																			: "On Battery"}{" "}
-																	â€¢ {batteryLevel}%
-																</span>
-															</motion.div>
-														)
-													) : (
-														<motion.div
-															key="standard-view"
-															className="main-row-inner"
-															initial={{ opacity: 0 }}
-															animate={{ opacity: 1 }}
-															exit={{ opacity: 0 }}
+															<Mic size={13} strokeWidth={2.4} style={{ color: "#a78bfa" }} />
+														)}
+														<span className="label" style={{ color: "#f1f5f9" }}>
+															{audioToast.message}
+														</span>
+													</motion.div>
+												) : showUpdatePulse ? (
+													<motion.div
+														key="update-pulse-view"
+														initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+														animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+														exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+														className="power-pulse-content"
+													>
+														<GreenDownArrowIcon />
+														<span className="label" style={{ color: "#32D74B" }}>
+															Update Available
+														</span>
+													</motion.div>
+												) : (
+													<motion.div
+														key="pulse-view"
+														initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+														animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+														exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
+														className="power-pulse-content"
+													>
+														{updateAvailable && <GreenDownArrowIcon />}
+														<BatteryIcon
+															charging={isCharging}
+															level={batteryLevel}
+															threshold={lowBatteryThreshold}
+														/>
+														<span
+															className="label"
+															style={{ color: showLowBatteryPulse ? "#FF453A" : "inherit" }}
 														>
-															{/* Left: status widgets when hovered */}
-															<div className="side-content left">
-																{isHovered && statusWidgets.left.length > 0 ? (
-																	<motion.div
-																		key="left-widgets"
-																		className="passive-features-group"
-																		initial={{ opacity: 0 }}
-																		animate={{ opacity: 1 }}
-																		exit={{ opacity: 0 }}
-																		transition={{ duration: 0.2 }}
-																	>
-																		{statusWidgets.left.map(renderStatusWidget)}
-																	</motion.div>
-																) : null}
-															</div>
+															{showLowBatteryPulse
+																? "Low Battery"
+																: isCharging
+																	? "Charging"
+																	: "On Battery"}{" "}
+															â€¢ {batteryLevel}%
+														</span>
+													</motion.div>
+												)
+											) : (
+												<motion.div
+													key="standard-view"
+													className="main-row-inner"
+													initial={{ opacity: 0 }}
+													animate={{ opacity: 1 }}
+													exit={{ opacity: 0 }}
+												>
+													{/* Left: status widgets when hovered */}
+													<div className="side-content left">
+														{isHovered && statusWidgets.left.length > 0 ? (
+															<motion.div
+																key="left-widgets"
+																className="passive-features-group"
+																initial={{ opacity: 0 }}
+																animate={{ opacity: 1 }}
+																exit={{ opacity: 0 }}
+																transition={{ duration: 0.2 }}
+															>
+																{statusWidgets.left.map(renderStatusWidget)}
+															</motion.div>
+														) : null}
+													</div>
 
-															{/* Center - Time (always visible) */}
-															<div className="time-center">
-																<AnimatePresence>
-																	{showPanelArrows && (
-																		<motion.button
-																			key="panel-prev"
-																			type="button"
-																			className="panel-arrow prev"
-																			aria-label="Previous panel"
-																			initial={{ opacity: 0, x: 4 }}
-																			animate={{ opacity: 1, x: 0 }}
-																			exit={{ opacity: 0, x: 4 }}
-																			transition={{ duration: 0.15 }}
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				cycleBloomMode(-1);
-																			}}
-																		>
-																			<ChevronLeft size={12} strokeWidth={2.5} />
-																		</motion.button>
-																	)}
-																</AnimatePresence>
-																<div className="time-flip-container" onClick={toggleCalendarMode}>
-																	<AnimatePresence initial={false}>
-																		{timerSeconds > 0 || isTimerFinished ? (
-																			<motion.span
-																				key="timer"
-																				className={`time compact-timer ${isTimerFinished ? "timer-finished" : ""}`}
-																				initial={{ rotateX: -90, opacity: 0 }}
-																				animate={{ rotateX: 0, opacity: 1 }}
-																				exit={{ rotateX: 90, opacity: 0 }}
-																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
-																			>
-																				{isTimerFinished && (
-																					<BellRing
-																						size={13}
-																						strokeWidth={2.5}
-																						className="timer-bell"
-																					/>
-																				)}
-																				{formatTimerTime(timerSeconds)}
-																			</motion.span>
-																		) : (
-																			<motion.span
-																				key="clock"
-																				className="time"
-																				initial={{ rotateX: -90, opacity: 0 }}
-																				animate={{ rotateX: 0, opacity: 1 }}
-																				exit={{ rotateX: 90, opacity: 0 }}
-																				transition={{ type: "spring", stiffness: 600, damping: 30 }}
-																			>
-																				{time}
-																			</motion.span>
+													{/* Center - Time (always visible) */}
+													<div className="time-center">
+														<AnimatePresence>
+															{showPanelArrows && (
+																<motion.button
+																	key="panel-prev"
+																	type="button"
+																	className="panel-arrow prev"
+																	aria-label="Previous panel"
+																	initial={{ opacity: 0, x: 4 }}
+																	animate={{ opacity: 1, x: 0 }}
+																	exit={{ opacity: 0, x: 4 }}
+																	transition={{ duration: 0.15 }}
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		cycleBloomMode(-1);
+																	}}
+																>
+																	<ChevronLeft size={12} strokeWidth={2.5} />
+																</motion.button>
+															)}
+														</AnimatePresence>
+														<div className="time-flip-container" onClick={toggleCalendarMode}>
+															<AnimatePresence initial={false}>
+																{timerSeconds > 0 || isTimerFinished ? (
+																	<motion.span
+																		key="timer"
+																		className={`time compact-timer ${isTimerFinished ? "timer-finished" : ""}`}
+																		initial={{ rotateX: -90, opacity: 0 }}
+																		animate={{ rotateX: 0, opacity: 1 }}
+																		exit={{ rotateX: 90, opacity: 0 }}
+																		transition={{ type: "spring", stiffness: 600, damping: 30 }}
+																	>
+																		{isTimerFinished && (
+																			<BellRing
+																				size={13}
+																				strokeWidth={2.5}
+																				className="timer-bell"
+																			/>
 																		)}
-																	</AnimatePresence>
-																</div>
-																<AnimatePresence>
-																	{showPanelArrows && (
-																		<motion.button
-																			key="panel-next"
-																			type="button"
-																			className="panel-arrow next"
-																			aria-label="Next panel"
-																			initial={{ opacity: 0, x: -4 }}
-																			animate={{ opacity: 1, x: 0 }}
-																			exit={{ opacity: 0, x: -4 }}
-																			transition={{ duration: 0.15 }}
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				cycleBloomMode(1);
-																			}}
-																		>
-																			<ChevronRight size={12} strokeWidth={2.5} />
-																		</motion.button>
-																	)}
-																</AnimatePresence>
-																{updateAvailable && showUpdateIndicator && (
-																	<div className="update-dot" />
-																)}
-															</div>
-
-															{/* Right: battery / stats status widgets */}
-															<div className="side-content right">
-																{isHovered && statusWidgets.right.length > 0 ? (
-																	<motion.div
-																		key="right-widgets"
-																		className="passive-features-group"
-																		initial={{ opacity: 0 }}
-																		animate={{ opacity: 1 }}
-																		exit={{ opacity: 0 }}
-																		transition={{ duration: 0.2 }}
+																		{formatTimerTime(timerSeconds)}
+																	</motion.span>
+																) : (
+																	<motion.span
+																		key="clock"
+																		className="time"
+																		initial={{ rotateX: -90, opacity: 0 }}
+																		animate={{ rotateX: 0, opacity: 1 }}
+																		exit={{ rotateX: 90, opacity: 0 }}
+																		transition={{ type: "spring", stiffness: 600, damping: 30 }}
 																	>
-																		{statusWidgets.right.map(renderStatusWidget)}
-																	</motion.div>
-																) : null}
-															</div>
-														</motion.div>
-													)}
-												</AnimatePresence>
-											</div>
-										</motion.div>
+																		{time}
+																	</motion.span>
+																)}
+															</AnimatePresence>
+														</div>
+														<AnimatePresence>
+															{showPanelArrows && (
+																<motion.button
+																	key="panel-next"
+																	type="button"
+																	className="panel-arrow next"
+																	aria-label="Next panel"
+																	initial={{ opacity: 0, x: -4 }}
+																	animate={{ opacity: 1, x: 0 }}
+																	exit={{ opacity: 0, x: -4 }}
+																	transition={{ duration: 0.15 }}
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		cycleBloomMode(1);
+																	}}
+																>
+																	<ChevronRight size={12} strokeWidth={2.5} />
+																</motion.button>
+															)}
+														</AnimatePresence>
+														{updateAvailable && showUpdateIndicator && (
+															<div className="update-dot" />
+														)}
+													</div>
+
+													{/* Right: battery / stats status widgets */}
+													<div className="side-content right">
+														{isHovered && statusWidgets.right.length > 0 ? (
+															<motion.div
+																key="right-widgets"
+																className="passive-features-group"
+																initial={{ opacity: 0 }}
+																animate={{ opacity: 1 }}
+																exit={{ opacity: 0 }}
+																transition={{ duration: 0.2 }}
+															>
+																{statusWidgets.right.map(renderStatusWidget)}
+															</motion.div>
+														) : null}
+													</div>
+												</motion.div>
+											)}
+										</AnimatePresence>
+									</div>
+								</motion.div>
 
 								{/* Media Player Panel */}
 								<AnimatePresence>
@@ -3241,7 +3281,7 @@ function App() {
 									{bloomMode === "command-center" && (
 										<ControlsView
 											showSavings={notchControlSavings}
-												showEthernet={notchControlEthernet}
+											showEthernet={notchControlEthernet}
 											showDnd={notchControlDnd}
 											showAirplane={notchControlAirplane}
 											showHotspot={notchControlHotspot}
@@ -3249,10 +3289,14 @@ function App() {
 											onBatterySaverContextMenu={openBatterySaverSettings}
 											wifiEnabled={wifiEnabled}
 											wifiConnected={wifiConnected}
-											onToggleWifi={() => { void toggleWifi(); }}
+											onToggleWifi={() => {
+												void toggleWifi();
+											}}
 											onWifiContextMenu={handleWifiRightClick}
 											bluetoothEnabled={bluetoothEnabled}
-											onToggleBluetooth={() => { void toggleBluetooth(); }}
+											onToggleBluetooth={() => {
+												void toggleBluetooth();
+											}}
 											onBluetoothContextMenu={handleBluetoothRightClick}
 											dockMode={dockMode}
 											onToggleDockMode={toggleDockModeSetting}
@@ -3506,9 +3550,7 @@ function App() {
 																	}}
 																	className={`shelf-tile ${item.type === "text" ? "is-text" : ""}`}
 																	title={
-																		item.type === "text"
-																			? item.text?.slice(0, 1000)
-																			: item.path
+																		item.type === "text" ? item.text?.slice(0, 1000) : item.path
 																	}
 																	onPointerDown={(e) => handleShelfPointerDown(e, item)}
 																	onPointerMove={(e) => handleShelfPointerMove(e, item)}
@@ -3563,11 +3605,7 @@ function App() {
 								</AnimatePresence>
 
 								{/* Power Panel */}
-								<AnimatePresence>
-									{bloomMode === "power" && (
-										<PowerView />
-									)}
-								</AnimatePresence>
+								<AnimatePresence>{bloomMode === "power" && <PowerView />}</AnimatePresence>
 
 								{/* Apps Panel */}
 								<AnimatePresence>
@@ -3584,7 +3622,10 @@ function App() {
 								{/* Wallpaper Panel */}
 								<AnimatePresence>
 									{bloomMode === "wallpaper" && (
-										<WallpaperView onClose={() => setBloomMode(shelfRestingModeRef.current)} />
+										<WallpaperView
+											onClose={() => setBloomMode(shelfRestingModeRef.current)}
+											onFramingChange={setIsWallpaperFraming}
+										/>
 									)}
 								</AnimatePresence>
 							</motion.div>
@@ -3648,6 +3689,3 @@ function Calendar() {
 }
 
 export default App;
-
-
-

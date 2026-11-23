@@ -15,7 +15,7 @@ export const WifiSubView: React.FC<WifiSubViewProps> = ({
 	wifiEnabled,
 	onToggleWifi,
 	onBack,
-	currentSsid,
+	currentSsid
 }) => {
 	const [networks, setNetworks] = useState<WifiNetworkEntry[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export const WifiSubView: React.FC<WifiSubViewProps> = ({
 		try {
 			const success = await invoke<boolean>("connect_wifi_network", {
 				ssid,
-				password: password || undefined,
+				password: password || undefined
 			});
 			if (success) {
 				setSelectedSsid(null);
@@ -144,7 +144,9 @@ export const WifiSubView: React.FC<WifiSubViewProps> = ({
 				) : (
 					<div className="cc-networks-list">
 						{networks.map((net) => {
-							const isConnected = net.is_connected || (currentSsid && net.ssid.toLowerCase() === currentSsid.toLowerCase());
+							const isConnected =
+								net.is_connected ||
+								(currentSsid && net.ssid.toLowerCase() === currentSsid.toLowerCase());
 							const isSelected = selectedSsid === net.ssid;
 
 							return (

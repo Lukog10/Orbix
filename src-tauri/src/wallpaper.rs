@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use base64::Engine;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WallpaperItem {
@@ -12,8 +12,7 @@ pub struct WallpaperItem {
 pub fn get_current_wallpaper() -> Result<String, String> {
     unsafe {
         use windows::Win32::System::Registry::{
-            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
-            REG_SZ,
+            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_SZ,
         };
         let subkey: Vec<u16> = "Control Panel\\Desktop"
             .encode_utf16()
@@ -46,11 +45,12 @@ pub fn get_current_wallpaper() -> Result<String, String> {
             );
             let _ = RegCloseKey(hkey);
             if res.is_ok() && buf_size > 1 {
-                let u16_slice = std::slice::from_raw_parts(
-                    buf.as_ptr() as *const u16,
-                    (buf_size as usize) / 2,
-                );
-                let len = u16_slice.iter().position(|&c| c == 0).unwrap_or(u16_slice.len());
+                let u16_slice =
+                    std::slice::from_raw_parts(buf.as_ptr() as *const u16, (buf_size as usize) / 2);
+                let len = u16_slice
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(u16_slice.len());
                 let path_str = String::from_utf16_lossy(&u16_slice[..len]);
                 if !path_str.trim().is_empty() {
                     return Ok(path_str);
@@ -102,9 +102,31 @@ pub fn get_wallpapers(folder: Option<String>) -> Result<Vec<WallpaperItem>, Stri
 
 fn get_default_wallpaper_dir() -> PathBuf {
     if let Ok(user_profile) = std::env::var("USERPROFILE") {
-        let pic_wallpapers = PathBuf::from(&user_profile).join("Pictures").join("Wallpapers");
+        let pic_wallpapers = PathBuf::from(&user_profile)
+            .join("Pictures")
+            .join("Wallpapers");
         if pic_wallpapers.exists() && pic_wallpapers.is_dir() {
             return pic_wallpapers;
+        }
+
+        let onedrive_wallpapers = PathBuf::from(&user_profile)
+            .join("OneDrive")
+            .join("Pictures")
+            .join("Wallpapers");
+        if onedrive_wallpapers.exists() && onedrive_wallpapers.is_dir() {
+            return onedrive_wallpapers;
+        }
+
+        let pics = PathBuf::from(&user_profile).join("Pictures");
+        if pics.exists() && pics.is_dir() {
+            return pics;
+        }
+
+        let onedrive_pics = PathBuf::from(&user_profile)
+            .join("OneDrive")
+            .join("Pictures");
+        if onedrive_pics.exists() && onedrive_pics.is_dir() {
+            return onedrive_pics;
         }
     }
 
@@ -113,19 +135,28 @@ fn get_default_wallpaper_dir() -> PathBuf {
         return win_wallpapers;
     }
 
-    if let Ok(user_profile) = std::env::var("USERPROFILE") {
-        let pics = PathBuf::from(&user_profile).join("Pictures");
-        if pics.exists() && pics.is_dir() {
-            return pics;
-        }
-    }
-
     PathBuf::from("C:\\Windows\\Web\\Wallpaper")
 }
 
-/// Collect images directly in the specified folder (non-recursive).
-/// Sub-folders are strictly excluded so the user only sees images in the current folder.
+/// Collect images from directory.
+/// If the directory itself has no direct images (e.g. C:\Windows\Web\Wallpaper or
+/// folders organized into subcategories), checks immediate subdirectories (1 level deep).
 fn collect_images_from_dir(dir: &Path, out: &mut Vec<WallpaperItem>) {
+    collect_images_shallow(dir, out);
+
+    if out.is_empty() {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    collect_images_shallow(&path, out);
+                }
+            }
+        }
+    }
+}
+
+fn collect_images_shallow(dir: &Path, out: &mut Vec<WallpaperItem>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -154,7 +185,9 @@ fn collect_images_from_dir(dir: &Path, out: &mut Vec<WallpaperItem>) {
 
 fn get_wallpaper_cache_dir() -> PathBuf {
     let base = if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        PathBuf::from(local_app_data).join("Orbix").join("wallpaper_cache")
+        PathBuf::from(local_app_data)
+            .join("Orbix")
+            .join("wallpaper_cache")
     } else {
         std::env::temp_dir().join("Orbix_wallpaper_cache")
     };
@@ -165,25 +198,34 @@ fn get_wallpaper_cache_dir() -> PathBuf {
 fn get_cache_key(path: &str, size: u64, mtime: u64) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "orbix_v5_1920".hash(&mut hasher);
     path.hash(&mut hasher);
     size.hash(&mut hasher);
     mtime.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
 
-static WALLPAPER_CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, String>>> =
-    std::sync::OnceLock::new();
+static WALLPAPER_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<String, String>>,
+> = std::sync::OnceLock::new();
 
 #[tauri::command]
 pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
-    let cache = WALLPAPER_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    tokio::task::spawn_blocking(move || generate_wallpaper_thumbnail(&path))
+        .await
+        .ok()?
+}
+
+fn generate_wallpaper_thumbnail(path: &str) -> Option<String> {
+    let cache =
+        WALLPAPER_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
     if let Ok(guard) = cache.lock() {
-        if let Some(cached) = guard.get(&path) {
+        if let Some(cached) = guard.get(path) {
             return Some(cached.clone());
         }
     }
 
-    let p = Path::new(&path);
+    let p = Path::new(path);
     let ext = p.extension()?.to_str()?.to_ascii_lowercase();
     if !matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "webp" | "bmp") {
         return None;
@@ -202,9 +244,8 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
         .unwrap_or(0);
 
     let cache_dir = get_wallpaper_cache_dir();
-    let cache_key = get_cache_key(&path, meta.len(), mtime);
+    let cache_key = get_cache_key(path, meta.len(), mtime);
     let cache_file_jpg = cache_dir.join(format!("{}.jpg", cache_key));
-    let cache_file_png = cache_dir.join(format!("{}.png", cache_key));
 
     // Fast-path: Check persistent disk cache before any heavy image decode
     if cache_file_jpg.exists() {
@@ -212,24 +253,15 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
             let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
             let data_url = format!("data:image/jpeg;base64,{}", b64);
             if let Ok(mut guard) = cache.lock() {
-                guard.insert(path, data_url.clone());
-            }
-            return Some(data_url);
-        }
-    } else if cache_file_png.exists() {
-        if let Ok(bytes) = std::fs::read(&cache_file_png) {
-            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-            let data_url = format!("data:image/png;base64,{}", b64);
-            if let Ok(mut guard) = cache.lock() {
-                guard.insert(path, data_url.clone());
+                guard.insert(path.to_string(), data_url.clone());
             }
             return Some(data_url);
         }
     }
 
     let mut limits = image::Limits::default();
-    limits.max_image_width = Some(8192);
-    limits.max_image_height = Some(8192);
+    limits.max_image_width = Some(16384);
+    limits.max_image_height = Some(16384);
     limits.max_alloc = Some(256 * 1024 * 1024);
 
     let mut reader = image::ImageReader::open(p)
@@ -239,32 +271,19 @@ pub async fn wallpaper_thumbnail(path: String) -> Option<String> {
     reader.limits(limits);
     let img = reader.decode().ok()?;
 
-    // 800x450 Retina thumbnail preserves crisp quality without excessive memory usage
-    let thumb = img.thumbnail(800, 450);
+    // Ultra high-definition 1920x1080 thumbnail preserves crisp original quality without lag
+    let thumb = img.thumbnail(1920, 1080);
 
-    let result_data_url = if img.color().has_alpha() {
-        let mut png_bytes: Vec<u8> = Vec::new();
-        thumb
-            .write_to(
-                &mut std::io::Cursor::new(&mut png_bytes),
-                image::ImageFormat::Png,
-            )
-            .ok()?;
-        let _ = std::fs::write(&cache_file_png, &png_bytes);
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&png_bytes);
-        format!("data:image/png;base64,{}", b64)
-    } else {
-        let mut jpeg_bytes: Vec<u8> = Vec::new();
-        let rgb = thumb.to_rgb8();
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 85);
-        encoder.encode_image(&rgb).ok()?;
-        let _ = std::fs::write(&cache_file_jpg, &jpeg_bytes);
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
-        format!("data:image/jpeg;base64,{}", b64)
-    };
+    let mut jpeg_bytes: Vec<u8> = Vec::new();
+    let rgb = thumb.to_rgb8();
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 95);
+    encoder.encode_image(&rgb).ok()?;
+    let _ = std::fs::write(&cache_file_jpg, &jpeg_bytes);
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
+    let result_data_url = format!("data:image/jpeg;base64,{}", b64);
 
     if let Ok(mut guard) = cache.lock() {
-        guard.insert(path, result_data_url.clone());
+        guard.insert(path.to_string(), result_data_url.clone());
     }
 
     Some(result_data_url)
@@ -305,10 +324,7 @@ pub fn apply_wallpaper_style(style: &str) -> Result<(), String> {
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
-        let val_data_style: Vec<u16> = style_val
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
+        let val_data_style: Vec<u16> = style_val.encode_utf16().chain(std::iter::once(0)).collect();
         let bytes_style = std::slice::from_raw_parts(
             val_data_style.as_ptr() as *const u8,
             val_data_style.len() * 2,
@@ -325,10 +341,7 @@ pub fn apply_wallpaper_style(style: &str) -> Result<(), String> {
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();
-        let val_data_tile: Vec<u16> = tile_val
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
+        let val_data_tile: Vec<u16> = tile_val.encode_utf16().chain(std::iter::once(0)).collect();
         let bytes_tile = std::slice::from_raw_parts(
             val_data_tile.as_ptr() as *const u8,
             val_data_tile.len() * 2,
@@ -350,8 +363,7 @@ pub fn apply_wallpaper_style(style: &str) -> Result<(), String> {
 pub fn get_wallpaper_fit() -> Result<String, String> {
     unsafe {
         use windows::Win32::System::Registry::{
-            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
-            REG_SZ,
+            RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, REG_SZ,
         };
         let subkey: Vec<u16> = "Control Panel\\Desktop"
             .encode_utf16()
@@ -384,12 +396,15 @@ pub fn get_wallpaper_fit() -> Result<String, String> {
                 Some(&mut buf_size),
             );
             if res.is_ok() && buf_size > 1 {
-                let u16_slice = std::slice::from_raw_parts(
-                    buf.as_ptr() as *const u16,
-                    (buf_size as usize) / 2,
-                );
-                let len = u16_slice.iter().position(|&c| c == 0).unwrap_or(u16_slice.len());
-                return String::from_utf16_lossy(&u16_slice[..len]).trim().to_string();
+                let u16_slice =
+                    std::slice::from_raw_parts(buf.as_ptr() as *const u16, (buf_size as usize) / 2);
+                let len = u16_slice
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(u16_slice.len());
+                return String::from_utf16_lossy(&u16_slice[..len])
+                    .trim()
+                    .to_string();
             }
             String::new()
         };
@@ -427,7 +442,7 @@ pub fn set_wallpaper(path: String, style: Option<String>) -> Result<(), String> 
 
     unsafe {
         use windows::Win32::UI::WindowsAndMessaging::{
-            SystemParametersInfoW, SPI_SETDESKWALLPAPER, SPIF_SENDCHANGE, SPIF_UPDATEINIFILE,
+            SystemParametersInfoW, SPIF_SENDCHANGE, SPIF_UPDATEINIFILE, SPI_SETDESKWALLPAPER,
         };
 
         let success = SystemParametersInfoW(
@@ -447,7 +462,9 @@ pub fn set_wallpaper(path: String, style: Option<String>) -> Result<(), String> 
 
 fn get_custom_wallpapers_dir() -> PathBuf {
     let base = if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        PathBuf::from(local_app_data).join("Orbix").join("custom_wallpapers")
+        PathBuf::from(local_app_data)
+            .join("Orbix")
+            .join("custom_wallpapers")
     } else {
         std::env::temp_dir().join("Orbix_custom_wallpapers")
     };
@@ -535,7 +552,8 @@ static SLIDESHOW_PAIR: std::sync::OnceLock<(
     std::sync::Arc<std::sync::Mutex<bool>>,
     std::sync::Arc<std::sync::Condvar>,
 )> = std::sync::OnceLock::new();
-static SLIDESHOW_LAST_INDEX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static SLIDESHOW_LAST_INDEX: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
 
 fn get_slideshow_pair() -> &'static (
     std::sync::Arc<std::sync::Mutex<bool>>,
@@ -590,10 +608,11 @@ fn run_slideshow_loop(app: tauri::AppHandle) {
     let (lock, cvar) = get_slideshow_pair();
 
     while SLIDESHOW_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
-        let interval_secs = crate::utils::get_setting_str(&app, "bloom-wallpaper-slideshow-interval")
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(900)
-            .max(3);
+        let interval_secs =
+            crate::utils::get_setting_str(&app, "bloom-wallpaper-slideshow-interval")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(900)
+                .max(3);
 
         if let Ok(guard) = lock.lock() {
             let res = cvar.wait_timeout(guard, std::time::Duration::from_secs(interval_secs));

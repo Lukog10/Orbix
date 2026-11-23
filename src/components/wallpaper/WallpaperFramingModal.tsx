@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Crop, ZoomIn, RotateCcw, X, Check } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { Crop, ZoomIn, RotateCcw, X, Check, Maximize, Minimize } from "lucide-react";
 
 export interface WallpaperFramingModalProps {
 	wallpaperPath: string;
 	wallpaperName: string;
+	initialThumbnail?: string;
 	onClose: () => void;
 	onApplied: (newPath: string) => void;
 }
@@ -12,34 +13,97 @@ export interface WallpaperFramingModalProps {
 export function WallpaperFramingModal({
 	wallpaperPath,
 	wallpaperName,
+	initialThumbnail,
 	onClose,
-	onApplied,
+	onApplied
 }: WallpaperFramingModalProps) {
+	const [fitMode, setFitMode] = useState<"fit" | "fill">("fit");
 	const [zoom, setZoom] = useState<number>(1.0);
 	const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 	const [isApplying, setIsApplying] = useState<boolean>(false);
 	const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+	const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+
 	const isDraggingRef = useRef<boolean>(false);
 	const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({
 		x: 0,
 		y: 0,
 		panX: 0,
-		panY: 0,
+		panY: 0
 	});
-	const viewportRef = useRef<HTMLDivElement>(null);
-	const imgRef = useRef<HTMLImageElement>(null);
 
-	// Detect monitor aspect ratio (defaults to 16:9)
-	const screenRatio = window.screen.width && window.screen.height
-		? window.screen.width / window.screen.height
-		: 16 / 9;
+	// Determine image source: prefer converted file source, fallback to initial thumbnail
+	const [imgSrc, setImgSrc] = useState<string>(() => {
+		if (wallpaperPath.startsWith("data:")) return wallpaperPath;
+		try {
+			return convertFileSrc(wallpaperPath);
+		} catch {
+			return initialThumbnail || "";
+		}
+	});
 
-	// Dimensions of viewport box inside the modal
-	const VIEWPORT_WIDTH = 460;
-	const VIEWPORT_HEIGHT = Math.round(VIEWPORT_WIDTH / screenRatio);
+	// Monitor aspect ratio (defaults to 16:9 if window.screen is missing)
+	const screenRatio = useMemo(() => {
+		if (typeof window !== "undefined" && window.screen.width && window.screen.height) {
+			return window.screen.width / window.screen.height;
+		}
+		return 16 / 9;
+	}, []);
 
-	const handleImageLoad = () => {
-		setImageLoaded(true);
+	// Target framing viewport dimensions inside the 480px-tall modal
+	// Height 270px yields 480px width at 16:9 (fits comfortably within 940px wide notch)
+	const FRAME_HEIGHT = 270;
+	const FRAME_WIDTH = Math.min(680, Math.round(FRAME_HEIGHT * screenRatio));
+
+	// Calculate base dimensions when fitted vs filled
+	const { baseWidth, baseHeight } = useMemo(() => {
+		if (!naturalSize || naturalSize.width === 0 || naturalSize.height === 0) {
+			return { baseWidth: FRAME_WIDTH, baseHeight: FRAME_HEIGHT };
+		}
+		const imgRatio = naturalSize.width / naturalSize.height;
+
+		if (fitMode === "fit") {
+			// Show entire wallpaper inside the frame (100% visible)
+			if (imgRatio >= screenRatio) {
+				const w = FRAME_WIDTH;
+				const h = Math.round(FRAME_WIDTH / imgRatio);
+				return { baseWidth: w, baseHeight: h };
+			} else {
+				const h = FRAME_HEIGHT;
+				const w = Math.round(FRAME_HEIGHT * imgRatio);
+				return { baseWidth: w, baseHeight: h };
+			}
+		} else {
+			// Cover / fill the entire frame
+			if (imgRatio >= screenRatio) {
+				const h = FRAME_HEIGHT;
+				const w = Math.round(FRAME_HEIGHT * imgRatio);
+				return { baseWidth: w, baseHeight: h };
+			} else {
+				const w = FRAME_WIDTH;
+				const h = Math.round(FRAME_WIDTH / imgRatio);
+				return { baseWidth: w, baseHeight: h };
+			}
+		}
+	}, [naturalSize, fitMode, screenRatio, FRAME_WIDTH, FRAME_HEIGHT]);
+
+	// Displayed dimensions with zoom applied
+	const dispW = Math.round(baseWidth * zoom);
+	const dispH = Math.round(baseHeight * zoom);
+
+	// Image coordinates relative to the frame's top-left corner [0, 0]
+	const imgLeft = Math.round((FRAME_WIDTH - dispW) / 2 + pan.x);
+	const imgTop = Math.round((FRAME_HEIGHT - dispH) / 2 + pan.y);
+
+	const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+		const target = e.currentTarget;
+		if (target.naturalWidth > 0 && target.naturalHeight > 0) {
+			setNaturalSize({
+				width: target.naturalWidth,
+				height: target.naturalHeight
+			});
+			setImageLoaded(true);
+		}
 	};
 
 	// Reset pan and zoom to center
@@ -48,7 +112,21 @@ export function WallpaperFramingModal({
 		setPan({ x: 0, y: 0 });
 	};
 
-	// Dragging handlers
+	// Switch to Fit mode (full image length visible)
+	const handleSetFit = () => {
+		setFitMode("fit");
+		setZoom(1.0);
+		setPan({ x: 0, y: 0 });
+	};
+
+	// Switch to Fill mode (crop frame covered edge-to-edge)
+	const handleSetFill = () => {
+		setFitMode("fill");
+		setZoom(1.0);
+		setPan({ x: 0, y: 0 });
+	};
+
+	// Dragging handlers for smooth pan
 	const handleMouseDown = (e: React.MouseEvent) => {
 		e.preventDefault();
 		isDraggingRef.current = true;
@@ -56,7 +134,7 @@ export function WallpaperFramingModal({
 			x: e.clientX,
 			y: e.clientY,
 			panX: pan.x,
-			panY: pan.y,
+			panY: pan.y
 		};
 	};
 
@@ -66,7 +144,7 @@ export function WallpaperFramingModal({
 		const deltaY = e.clientY - dragStartRef.current.y;
 		setPan({
 			x: dragStartRef.current.panX + deltaX,
-			y: dragStartRef.current.panY + deltaY,
+			y: dragStartRef.current.panY + deltaY
 		});
 	}, []);
 
@@ -83,40 +161,49 @@ export function WallpaperFramingModal({
 		};
 	}, [handleMouseMove, handleMouseUp]);
 
-	// Mouse wheel zoom
+	// Mouse wheel zoom (zoom range: 0.5x to 3.0x)
 	const handleWheel = (e: React.WheelEvent) => {
 		e.stopPropagation();
-		const delta = -Math.sign(e.deltaY) * 0.1;
-		setZoom((prev) => Math.min(3.0, Math.max(1.0, parseFloat((prev + delta).toFixed(2)))));
+		const delta = -Math.sign(e.deltaY) * 0.08;
+		setZoom((prev) => Math.min(3.0, Math.max(0.5, parseFloat((prev + delta).toFixed(2)))));
 	};
 
-	// Calculate normalized crop coordinates and call backend
+	// Calculate normalized crop coordinates [0.0, 1.0] and call backend
 	const handleApply = async () => {
-		if (!imgRef.current || !viewportRef.current) return;
+		if (dispW <= 0 || dispH <= 0) return;
 		setIsApplying(true);
 
 		try {
-			const vRect = viewportRef.current.getBoundingClientRect();
-			const iRect = imgRef.current.getBoundingClientRect();
+			// Find visible intersection of image within the target frame [0, FRAME_WIDTH] x [0, FRAME_HEIGHT]
+			const visibleLeft = Math.max(0, -imgLeft);
+			const visibleTop = Math.max(0, -imgTop);
+			const visibleRight = Math.min(dispW, FRAME_WIDTH - imgLeft);
+			const visibleBottom = Math.min(dispH, FRAME_HEIGHT - imgTop);
 
-			// Calculate what portion of the displayed image is inside the viewport rect
-			const cropLeftPx = Math.max(0, vRect.left - iRect.left);
-			const cropTopPx = Math.max(0, vRect.top - iRect.top);
-			const cropWidthPx = Math.min(iRect.width - cropLeftPx, vRect.width);
-			const cropHeightPx = Math.min(iRect.height - cropTopPx, vRect.height);
+			let crop_x = 0;
+			let crop_y = 0;
+			let crop_w = 1.0;
+			let crop_h = 1.0;
 
-			// Normalize to [0.0, 1.0] relative to displayed image dimensions
-			const crop_x = Math.max(0.0, Math.min(1.0, cropLeftPx / iRect.width));
-			const crop_y = Math.max(0.0, Math.min(1.0, cropTopPx / iRect.height));
-			const crop_w = Math.max(0.01, Math.min(1.0, cropWidthPx / iRect.width));
-			const crop_h = Math.max(0.01, Math.min(1.0, cropHeightPx / iRect.height));
+			if (visibleRight > visibleLeft && visibleBottom > visibleTop) {
+				crop_x = visibleLeft / dispW;
+				crop_y = visibleTop / dispH;
+				crop_w = (visibleRight - visibleLeft) / dispW;
+				crop_h = (visibleBottom - visibleTop) / dispH;
+			}
+
+			// Clamp to valid [0.0, 1.0] bounds
+			const final_crop_x = Math.max(0.0, Math.min(1.0, crop_x));
+			const final_crop_y = Math.max(0.0, Math.min(1.0, crop_y));
+			const final_crop_w = Math.max(0.01, Math.min(1.0 - final_crop_x, crop_w));
+			const final_crop_h = Math.max(0.01, Math.min(1.0 - final_crop_y, crop_h));
 
 			const newPath = await invoke<string>("set_custom_crop_wallpaper", {
 				path: wallpaperPath,
-				cropX: crop_x,
-				cropY: crop_y,
-				cropW: crop_w,
-				cropH: crop_h,
+				cropX: final_crop_x,
+				cropY: final_crop_y,
+				cropW: final_crop_w,
+				cropH: final_crop_h
 			});
 
 			onApplied(newPath || wallpaperPath);
@@ -134,7 +221,7 @@ export function WallpaperFramingModal({
 			<div className="wallpaper-framing-header">
 				<div className="wallpaper-framing-title-group">
 					<div className="wallpaper-framing-badge">
-						<Crop size={12} strokeWidth={2.5} />
+						<Crop size={12} strokeWidth={2.4} />
 						<span>Custom Framing</span>
 					</div>
 					<span className="wallpaper-framing-filename" title={wallpaperName}>
@@ -143,6 +230,11 @@ export function WallpaperFramingModal({
 					<span className="wallpaper-framing-screen-ratio">
 						Screen: {Math.round(screenRatio * 9)}:9 ({window.screen.width}x{window.screen.height})
 					</span>
+					{naturalSize && (
+						<span className="wallpaper-framing-dimensions">
+							{naturalSize.width}×{naturalSize.height}
+						</span>
+					)}
 				</div>
 
 				<div className="wallpaper-framing-actions">
@@ -173,50 +265,61 @@ export function WallpaperFramingModal({
 				onWheel={handleWheel}
 				onMouseDown={handleMouseDown}
 			>
+				{/* Crop Frame (Target Desktop Aspect Ratio) */}
 				<div
-					ref={viewportRef}
-					className="wallpaper-framing-viewport"
+					className="wallpaper-framing-viewport-container"
 					style={{
-						width: VIEWPORT_WIDTH,
-						height: VIEWPORT_HEIGHT,
+						width: FRAME_WIDTH,
+						height: FRAME_HEIGHT
 					}}
 				>
+					{/* Image positioned relative to frame coordinate system */}
 					<img
-						ref={imgRef}
-						src={wallpaperPath.startsWith("data:") ? wallpaperPath : `https://asset.localhost/${wallpaperPath}`}
+						src={imgSrc}
 						alt={wallpaperName}
 						draggable={false}
 						onLoad={handleImageLoad}
 						style={{
-							transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-							transformOrigin: "center center",
+							position: "absolute",
+							left: `${imgLeft}px`,
+							top: `${imgTop}px`,
+							width: `${dispW}px`,
+							height: `${dispH}px`,
+							maxWidth: "none",
+							maxHeight: "none",
 							opacity: imageLoaded ? 1 : 0.4,
+							transition: isDraggingRef.current ? "none" : "opacity 0.2s ease",
+							userSelect: "none",
+							pointerEvents: "none"
 						}}
 						className="wallpaper-framing-image"
-						onError={(e) => {
-							// Fallback directly to file if asset protocol fails
-							const target = e.currentTarget;
-							if (!target.src.startsWith("data:")) {
+						onError={() => {
+							if (initialThumbnail && imgSrc !== initialThumbnail) {
+								setImgSrc(initialThumbnail);
+							} else if (!imgSrc.startsWith("data:")) {
 								invoke<string | null>("wallpaper_thumbnail", { path: wallpaperPath })
 									.then((thumb) => {
-										if (thumb) target.src = thumb;
+										if (thumb) setImgSrc(thumb);
 									})
 									.catch(() => {});
 							}
 						}}
 					/>
 
-					{/* 3x3 Composition Guidelines */}
-					<div className="wallpaper-framing-grid" aria-hidden="true">
-						<div className="grid-cell border-r border-b" />
-						<div className="grid-cell border-r border-b" />
-						<div className="grid-cell border-b" />
-						<div className="grid-cell border-r border-b" />
-						<div className="grid-cell border-r border-b" />
-						<div className="grid-cell border-b" />
-						<div className="grid-cell border-r" />
-						<div className="grid-cell border-r" />
-						<div className="grid-cell" />
+					{/* Target Desktop Frame Overlay with Dimmed Backdrop Mask */}
+					<div className="wallpaper-framing-viewport-mask">
+						{/* 3x3 Composition Guidelines */}
+						<div className="wallpaper-framing-grid" aria-hidden="true">
+							<div className="grid-cell border-r border-b" />
+							<div className="grid-cell border-r border-b" />
+							<div className="grid-cell border-b" />
+							<div className="grid-cell border-r border-b" />
+							<div className="grid-cell border-r border-b" />
+							<div className="grid-cell border-b" />
+							<div className="grid-cell border-r" />
+							<div className="grid-cell border-r" />
+							<div className="grid-cell" />
+						</div>
 					</div>
 
 					<div className="wallpaper-framing-drag-hint">
@@ -227,27 +330,50 @@ export function WallpaperFramingModal({
 
 			{/* Bottom Controls Bar */}
 			<div className="wallpaper-framing-footer">
-				<div className="wallpaper-framing-zoom-controls">
-					<ZoomIn size={12} className="wallpaper-zoom-icon" />
-					<span className="wallpaper-zoom-label">Zoom:</span>
-					<input
-						type="range"
-						min="1.0"
-						max="3.0"
-						step="0.05"
-						value={zoom}
-						onChange={(e) => setZoom(parseFloat(e.target.value))}
-						className="wallpaper-zoom-slider"
-					/>
-					<span className="wallpaper-zoom-value">{zoom.toFixed(1)}x</span>
+				{/* Mode Toggles & Zoom Controls */}
+				<div className="wallpaper-framing-footer-left">
+					{/* Fit Mode Toggle Pills */}
+					<div className="wallpaper-framing-mode-group">
+						<button
+							type="button"
+							className={`wallpaper-framing-mode-btn ${fitMode === "fit" ? "is-active" : ""}`}
+							onClick={handleSetFit}
+							title="Fit full image (shows complete length)"
+						>
+							<Minimize size={12} strokeWidth={2.2} />
+							<span>Fit All</span>
+						</button>
+						<button
+							type="button"
+							className={`wallpaper-framing-mode-btn ${fitMode === "fill" ? "is-active" : ""}`}
+							onClick={handleSetFill}
+							title="Fill desktop frame (edge-to-edge crop)"
+						>
+							<Maximize size={12} strokeWidth={2.2} />
+							<span>Fill Frame</span>
+						</button>
+					</div>
+
+					{/* Zoom Controls */}
+					<div className="wallpaper-framing-zoom-controls">
+						<ZoomIn size={12} className="wallpaper-zoom-icon" />
+						<span className="wallpaper-zoom-label">Zoom:</span>
+						<input
+							type="range"
+							min="0.5"
+							max="3.0"
+							step="0.05"
+							value={zoom}
+							onChange={(e) => setZoom(parseFloat(e.target.value))}
+							className="wallpaper-zoom-slider"
+						/>
+						<span className="wallpaper-zoom-value">{zoom.toFixed(2)}x</span>
+					</div>
 				</div>
 
+				{/* Action Buttons */}
 				<div className="wallpaper-framing-footer-actions">
-					<button
-						type="button"
-						className="wallpaper-btn-cancel"
-						onClick={onClose}
-					>
+					<button type="button" className="wallpaper-btn-cancel" onClick={onClose}>
 						Cancel
 					</button>
 

@@ -231,7 +231,10 @@ fn main() {
             crate::utils::init_settings_cache(app.handle());
 
             // Resume wallpaper slideshow if enabled in settings
-            if crate::utils::get_setting_str(app.handle(), "bloom-wallpaper-slideshow-enabled").as_deref() == Some("true") {
+            if crate::utils::get_setting_str(app.handle(), "bloom-wallpaper-slideshow-enabled")
+                .as_deref()
+                == Some("true")
+            {
                 let _ = wallpaper::toggle_slideshow(app.handle().clone(), true);
             }
             // Crash-recovery: if a previous session was force-killed while the native
@@ -479,5 +482,3 @@ fn main() {
         }
     });
 }
-
-

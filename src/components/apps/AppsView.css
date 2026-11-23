@@ -57,7 +57,9 @@
 	border-radius: 10px;
 	padding: 0 10px;
 	box-sizing: border-box;
-	transition: border-color 0.15s ease, background 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease;
 }
 
 .apps-search-input-wrapper:focus-within {
@@ -213,7 +215,9 @@
 	border-radius: 8px;
 	background: transparent;
 	cursor: pointer;
-	transition: background 0.1s ease, box-shadow 0.1s ease;
+	transition:
+		background 0.1s ease,
+		box-shadow 0.1s ease;
 }
 
 .apps-item:hover {
@@ -360,7 +364,9 @@
 	justify-content: center;
 	padding: 2px;
 	border-radius: 4px;
-	transition: color 0.12s ease, transform 0.1s ease;
+	transition:
+		color 0.12s ease,
+		transform 0.1s ease;
 }
 
 .apps-star-btn:hover {

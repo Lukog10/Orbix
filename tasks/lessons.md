@@ -6,7 +6,7 @@
 
 _No lessons recorded yet._
 
-<!-- 
+<!--
 Format for new entries:
 
 ### [Date] — [Short description]

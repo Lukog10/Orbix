@@ -56,25 +56,25 @@ Edit `settings.json` with any text editor while Orbix is running. Changes are ap
 
 ### Modules
 
-| Key                         | Type                 | Default  | Description                                                           |
-| --------------------------- | -------------------- | -------- | --------------------------------------------------------------------- |
-| `bloom-calendar-enabled`    | `"true"` / `"false"` | `"true"` | Enable calendar/timer mode in the notch.                              |
-| `bloom-power-mode-enabled`   | `"true"` / `"false"` | `"true"` | Enable power menu mode (shutdown, restart, sleep, lock, switch user). |
-| `bloom-wallpaper-mode-enabled` | `"true"` / `"false"` | `"true"` | Enable wallpaper carousel mode in the notch.                           |
-| `bloom-wallpaper-folder`     | string path          | `""`      | Custom folder containing wallpapers (empty = default Windows wallpapers). |
-| `bloom-music-mode-enabled`  | `"true"` / `"false"` | `"true"` | Enable interactive music media widget.                                |
-| `bloom-music-compact-notch` | `"true"` / `"false"` | `"true"` | Show compact music display (visualizer + artwork) in collapsed notch. |
+| Key                            | Type                 | Default  | Description                                                               |
+| ------------------------------ | -------------------- | -------- | ------------------------------------------------------------------------- |
+| `bloom-calendar-enabled`       | `"true"` / `"false"` | `"true"` | Enable calendar/timer mode in the notch.                                  |
+| `bloom-power-mode-enabled`     | `"true"` / `"false"` | `"true"` | Enable power menu mode (shutdown, restart, sleep, lock, switch user).     |
+| `bloom-wallpaper-mode-enabled` | `"true"` / `"false"` | `"true"` | Enable wallpaper carousel mode in the notch.                              |
+| `bloom-wallpaper-folder`       | string path          | `""`     | Custom folder containing wallpapers (empty = default Windows wallpapers). |
+| `bloom-music-mode-enabled`     | `"true"` / `"false"` | `"true"` | Enable interactive music media widget.                                    |
+| `bloom-music-compact-notch`    | `"true"` / `"false"` | `"true"` | Show compact music display (visualizer + artwork) in collapsed notch.     |
 
 ### Notch Quick Controls & Audio
 
-| Key                            | Type                 | Default  | Description                                                                              |
-| ------------------------------ | -------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `bloom-notch-control-savings`  | `"true"` / `"false"` | `"true"` | Show Energy / Battery Saver button in Notch Control Center.                               |
-| `bloom-notch-control-dnd`      | `"true"` / `"false"` | `"true"` | Show Focus / Do Not Disturb button in Notch Control Center.                              |
-| `bloom-notch-control-airplane` | `"true"` / `"false"` | `"true"` | Show Flight / Airplane Mode button in Notch Control Center.                              |
-| `bloom-notch-control-hotspot`  | `"true"` / `"false"` | `"true"` | Show Mobile Hotspot button in Notch Control Center.                                      |
-| `bloom-notch-control-ethernet` | `"true"` / `"false"` | `"true"` | Show Ethernet network button in Notch Control Center.                                    |
-| `bloom-notch-audio-indicator`  | `"true"` / `"false"` | `"true"` | Show animated toast pill and status icons when headphones or microphones connect.         |
+| Key                            | Type                 | Default  | Description                                                                       |
+| ------------------------------ | -------------------- | -------- | --------------------------------------------------------------------------------- |
+| `bloom-notch-control-savings`  | `"true"` / `"false"` | `"true"` | Show Energy / Battery Saver button in Notch Control Center.                       |
+| `bloom-notch-control-dnd`      | `"true"` / `"false"` | `"true"` | Show Focus / Do Not Disturb button in Notch Control Center.                       |
+| `bloom-notch-control-airplane` | `"true"` / `"false"` | `"true"` | Show Flight / Airplane Mode button in Notch Control Center.                       |
+| `bloom-notch-control-hotspot`  | `"true"` / `"false"` | `"true"` | Show Mobile Hotspot button in Notch Control Center.                               |
+| `bloom-notch-control-ethernet` | `"true"` / `"false"` | `"true"` | Show Ethernet network button in Notch Control Center.                             |
+| `bloom-notch-audio-indicator`  | `"true"` / `"false"` | `"true"` | Show animated toast pill and status icons when headphones or microphones connect. |
 
 ### Shelf
 
@@ -130,16 +130,16 @@ Example:
 
 ### System
 
-| Key                            | Type                 | Default   | Description                                                                                                     |
-| ------------------------------ | -------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
-| `bloom-scale`                  | float string         | `"1.0"`   | Global UI scale factor fallback (0.8 to 1.3). Changing this re-registers AppBars to resize screen areas.         |
-| `bloom-notch-scale`            | float string         | `"1.0"`   | Notch UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes and repositions the Notch bar.   |
-| `bloom-dock-scale`             | float string         | `"1.0"`   | Dock UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes Dock apps and AppBars.           |
-| `bloom-low-battery-threshold`  | integer string       | `"20"`    | Battery percentage that triggers the low-battery alert pulse (5 to 50, step 5).                                 |
-| `bloom-auto-update`            | `"true"` / `"false"` | `"false"` | Check for and download updates automatically on startup.                                                        |
-| `bloom-show-update-indicator`  | `"true"` / `"false"` | `"true"`  | Show a green dot on the notch when an update is available.                                                      |
-| `bloom-announcement-dismissed` | announcement id      | `""`      | ID of the last dismissed in-app announcement (published via `website/public/announcements.json`).               |
-| `bloom-time-format-24h`        | `"true"` / `"false"` | `"false"` | Use 24-hour clock format in the notch. When `"false"`, displays 12-hour format with AM/PM.                      |
+| Key                            | Type                 | Default   | Description                                                                                                    |
+| ------------------------------ | -------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
+| `bloom-scale`                  | float string         | `"1.0"`   | Global UI scale factor fallback (0.8 to 1.3). Changing this re-registers AppBars to resize screen areas.       |
+| `bloom-notch-scale`            | float string         | `"1.0"`   | Notch UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes and repositions the Notch bar. |
+| `bloom-dock-scale`             | float string         | `"1.0"`   | Dock UI & Font scale factor (0.8 to 1.3). Falls back to `bloom-scale`. Resizes Dock apps and AppBars.          |
+| `bloom-low-battery-threshold`  | integer string       | `"20"`    | Battery percentage that triggers the low-battery alert pulse (5 to 50, step 5).                                |
+| `bloom-auto-update`            | `"true"` / `"false"` | `"false"` | Check for and download updates automatically on startup.                                                       |
+| `bloom-show-update-indicator`  | `"true"` / `"false"` | `"true"`  | Show a green dot on the notch when an update is available.                                                     |
+| `bloom-announcement-dismissed` | announcement id      | `""`      | ID of the last dismissed in-app announcement (published via `website/public/announcements.json`).              |
+| `bloom-time-format-24h`        | `"true"` / `"false"` | `"false"` | Use 24-hour clock format in the notch. When `"false"`, displays 12-hour format with AM/PM.                     |
 
 ### Internal (Do Not Edit Manually)
 

@@ -12,7 +12,7 @@ export const BluetoothSubView: React.FC<BluetoothSubViewProps> = ({
 	bluetoothEnabled,
 	onToggleBluetooth,
 	onBack,
-	onOpenSettings,
+	onOpenSettings
 }) => {
 	return (
 		<div className="cc-subview-container">

@@ -1866,8 +1866,20 @@ img {
 	-ms-overflow-style: none;
 	scroll-behavior: smooth;
 	box-sizing: border-box;
-	mask-image: linear-gradient(to right, transparent, black 8px, black calc(100% - 8px), transparent);
-	-webkit-mask-image: linear-gradient(to right, transparent, black 8px, black calc(100% - 8px), transparent);
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		black 8px,
+		black calc(100% - 8px),
+		transparent
+	);
+	-webkit-mask-image: linear-gradient(
+		to right,
+		transparent,
+		black 8px,
+		black calc(100% - 8px),
+		transparent
+	);
 }
 
 .cc-circular-actions-row::-webkit-scrollbar {

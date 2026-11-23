@@ -1,5 +1,6 @@
 import { Palette, Droplet, Contrast, Droplets, Sun, Square, Maximize2 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
+import GlideSelect from "../components/common/GlideSelect";
 
 interface AppearanceTabProps {
 	themeMode: string;
@@ -54,16 +55,19 @@ export function AppearanceTab({
 			<div className="setting-group-label">Theme</div>
 			<div className="setting-group">
 				<SettingRow icon={Palette} label="Theme Mode" desc="Configure visual styling">
-					<select
-						className="settings-select"
+					<GlideSelect
 						value={themeMode}
-						onChange={(e) => handleThemeModeChange(e.target.value)}
-					>
-						<option value="dark">Dark (Translucent)</option>
-						<option value="light">Light (Translucent)</option>
-						<option value="custom">Custom Color</option>
-						<option value="adaptive">Adaptive Accent</option>
-					</select>
+						options={[
+							{ value: "dark", label: "Dark", tag: "Translucent" },
+							{ value: "light", label: "Light", tag: "Translucent" },
+							{ value: "custom", label: "Custom", tag: "Color" },
+							{ value: "adaptive", label: "Adaptive", tag: "Accent" }
+						]}
+						onChange={(val) => handleThemeModeChange(val)}
+						size="sm"
+						menuWidth={180}
+						align="right"
+					/>
 				</SettingRow>
 
 				{showCustomColor && (
@@ -171,7 +175,9 @@ export function AppearanceTab({
 				>
 					<div className="scale-button-container">
 						<button
-							onClick={() => handleNotchScaleChange(Math.max(0.8, parseFloat((notchScale - 0.1).toFixed(1))))}
+							onClick={() =>
+								handleNotchScaleChange(Math.max(0.8, parseFloat((notchScale - 0.1).toFixed(1))))
+							}
 							disabled={notchScale <= 0.8}
 							className="scale-adjust-btn"
 							title="Decrease Notch Scale"
@@ -180,7 +186,9 @@ export function AppearanceTab({
 						</button>
 						<span className="scale-display-value">{Math.round(notchScale * 100)}%</span>
 						<button
-							onClick={() => handleNotchScaleChange(Math.min(1.3, parseFloat((notchScale + 0.1).toFixed(1))))}
+							onClick={() =>
+								handleNotchScaleChange(Math.min(1.3, parseFloat((notchScale + 0.1).toFixed(1))))
+							}
 							disabled={notchScale >= 1.3}
 							className="scale-adjust-btn"
 							title="Increase Notch Scale"
@@ -198,7 +206,9 @@ export function AppearanceTab({
 				>
 					<div className="scale-button-container">
 						<button
-							onClick={() => handleDockScaleChange(Math.max(0.8, parseFloat((dockScale - 0.1).toFixed(1))))}
+							onClick={() =>
+								handleDockScaleChange(Math.max(0.8, parseFloat((dockScale - 0.1).toFixed(1))))
+							}
 							disabled={dockScale <= 0.8}
 							className="scale-adjust-btn"
 							title="Decrease Dock Scale"
@@ -207,7 +217,9 @@ export function AppearanceTab({
 						</button>
 						<span className="scale-display-value">{Math.round(dockScale * 100)}%</span>
 						<button
-							onClick={() => handleDockScaleChange(Math.min(1.3, parseFloat((dockScale + 0.1).toFixed(1))))}
+							onClick={() =>
+								handleDockScaleChange(Math.min(1.3, parseFloat((dockScale + 0.1).toFixed(1))))
+							}
 							disabled={dockScale >= 1.3}
 							className="scale-adjust-btn"
 							title="Increase Dock Scale"

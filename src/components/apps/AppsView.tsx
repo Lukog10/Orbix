@@ -216,51 +216,62 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 	}, []);
 
 	// Track launch
-	const recordLaunch = useCallback((name: string, path: string, type: "app" | "game" | "file" | "snippet" | "web", icon?: string | null) => {
-		setRecentLaunches((prev) => {
-			const existingIndex = prev.findIndex((p) => p.path === path || p.name === name);
-			let next: StoredLaunch[];
-			if (existingIndex >= 0) {
-				const existing = prev[existingIndex];
-				const updated: StoredLaunch = {
-					...existing,
-					icon: icon ?? existing.icon,
-					count: existing.count + 1,
-					lastUsed: Date.now()
-				};
-				next = [updated, ...prev.filter((_, idx) => idx !== existingIndex)];
-			} else {
-				const fresh: StoredLaunch = {
-					id: `launch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-					name,
-					path,
-					icon,
-					type,
-					count: 1,
-					lastUsed: Date.now()
-				};
-				next = [fresh, ...prev];
-			}
-			const trimmed = next.slice(0, 25);
-			try {
-				localStorage.setItem("bloom-recent-launches", JSON.stringify(trimmed));
-			} catch {}
-			return trimmed;
-		});
-	}, []);
+	const recordLaunch = useCallback(
+		(
+			name: string,
+			path: string,
+			type: "app" | "game" | "file" | "snippet" | "web",
+			icon?: string | null
+		) => {
+			setRecentLaunches((prev) => {
+				const existingIndex = prev.findIndex((p) => p.path === path || p.name === name);
+				let next: StoredLaunch[];
+				if (existingIndex >= 0) {
+					const existing = prev[existingIndex];
+					const updated: StoredLaunch = {
+						...existing,
+						icon: icon ?? existing.icon,
+						count: existing.count + 1,
+						lastUsed: Date.now()
+					};
+					next = [updated, ...prev.filter((_, idx) => idx !== existingIndex)];
+				} else {
+					const fresh: StoredLaunch = {
+						id: `launch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+						name,
+						path,
+						icon,
+						type,
+						count: 1,
+						lastUsed: Date.now()
+					};
+					next = [fresh, ...prev];
+				}
+				const trimmed = next.slice(0, 25);
+				try {
+					localStorage.setItem("bloom-recent-launches", JSON.stringify(trimmed));
+				} catch {}
+				return trimmed;
+			});
+		},
+		[]
+	);
 
 	// Toggle pin item
-	const togglePin = useCallback((item: UnifiedItem) => {
-		setPinnedIds((prev) => {
-			const isPinned = prev.includes(item.id);
-			const next = isPinned ? prev.filter((id) => id !== item.id) : [...prev, item.id];
-			try {
-				localStorage.setItem("bloom-pinned-items", JSON.stringify(next));
-			} catch {}
-			showToast(isPinned ? `Unpinned ${item.title}` : `Pinned ${item.title}`);
-			return next;
-		});
-	}, [showToast]);
+	const togglePin = useCallback(
+		(item: UnifiedItem) => {
+			setPinnedIds((prev) => {
+				const isPinned = prev.includes(item.id);
+				const next = isPinned ? prev.filter((id) => id !== item.id) : [...prev, item.id];
+				try {
+					localStorage.setItem("bloom-pinned-items", JSON.stringify(next));
+				} catch {}
+				showToast(isPinned ? `Unpinned ${item.title}` : `Pinned ${item.title}`);
+				return next;
+			});
+		},
+		[showToast]
+	);
 
 	// Math evaluation safely
 	const mathResult = useMemo(() => {
@@ -362,7 +373,7 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 					: recentLaunches.slice(0, 5).map((rl) => ({
 							rl,
 							res: { matches: true, score: 0, matchedIndices: [] }
-					  }));
+						}));
 
 				recentItems = scoredRecent.map(({ rl, res }) => {
 					const isPinned = pinnedIds.includes(rl.id);
@@ -433,12 +444,10 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 						.filter(({ res }) => res.matches)
 						.sort((a, b) => b.res.score - a.res.score)
 						.slice(0, 30)
-				: installedApps
-						.slice(recentItems.length > 0 ? 5 : 0, 25)
-						.map((app) => ({
-							app,
-							res: { matches: true, score: 0, matchedIndices: [] }
-						}));
+				: installedApps.slice(recentItems.length > 0 ? 5 : 0, 25).map((app) => ({
+						app,
+						res: { matches: true, score: 0, matchedIndices: [] }
+					}));
 
 			appItems = scoredApps.map(({ app, res }, idx) => {
 				const isGame = isGameApp(app.name, app.path);
@@ -482,7 +491,7 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 				: fileResults.map((file) => ({
 						file,
 						res: { matches: true, score: 0, matchedIndices: [] }
-				  }));
+					}));
 
 			scoredFiles.forEach(({ file, res }, idx) => {
 				const id = `file-${file.path}-${idx}`;
@@ -779,25 +788,31 @@ export function AppsView({ onFocusChange, onClose }: AppsViewProps = {}) {
 		}
 	};
 
-function HighlightedTitle({ title, matchedIndices }: { title: string; matchedIndices?: number[] }) {
-	if (!matchedIndices || matchedIndices.length === 0) {
-		return <span className="apps-item-title">{title}</span>;
+	function HighlightedTitle({
+		title,
+		matchedIndices
+	}: {
+		title: string;
+		matchedIndices?: number[];
+	}) {
+		if (!matchedIndices || matchedIndices.length === 0) {
+			return <span className="apps-item-title">{title}</span>;
+		}
+		const matchSet = new Set(matchedIndices);
+		return (
+			<span className="apps-item-title">
+				{title.split("").map((ch, idx) =>
+					matchSet.has(idx) ? (
+						<span key={idx} className="apps-match-highlight">
+							{ch}
+						</span>
+					) : (
+						ch
+					)
+				)}
+			</span>
+		);
 	}
-	const matchSet = new Set(matchedIndices);
-	return (
-		<span className="apps-item-title">
-			{title.split("").map((ch, idx) =>
-				matchSet.has(idx) ? (
-					<span key={idx} className="apps-match-highlight">
-						{ch}
-					</span>
-				) : (
-					ch
-				)
-			)}
-		</span>
-	);
-}
 
 	// Helper to render an item row without onMouseEnter state churn
 	const renderItemRow = (item: UnifiedItem) => {
@@ -923,9 +938,7 @@ function HighlightedTitle({ title, matchedIndices }: { title: string; matchedInd
 						{categories.recent.length > 0 && (
 							<div className="apps-section">
 								<div className="apps-section-header">RECENT</div>
-								<div className="apps-section-items">
-									{categories.recent.map(renderItemRow)}
-								</div>
+								<div className="apps-section-items">{categories.recent.map(renderItemRow)}</div>
 							</div>
 						)}
 
@@ -943,9 +956,7 @@ function HighlightedTitle({ title, matchedIndices }: { title: string; matchedInd
 						{categories.folders.length > 0 && (
 							<div className="apps-section">
 								<div className="apps-section-header">FOLDERS</div>
-								<div className="apps-section-items">
-									{categories.folders.map(renderItemRow)}
-								</div>
+								<div className="apps-section-items">{categories.folders.map(renderItemRow)}</div>
 							</div>
 						)}
 
@@ -953,9 +964,7 @@ function HighlightedTitle({ title, matchedIndices }: { title: string; matchedInd
 						{categories.files.length > 0 && (
 							<div className="apps-section">
 								<div className="apps-section-header">FILES</div>
-								<div className="apps-section-items">
-									{categories.files.map(renderItemRow)}
-								</div>
+								<div className="apps-section-items">{categories.files.map(renderItemRow)}</div>
 							</div>
 						)}
 
@@ -963,9 +972,7 @@ function HighlightedTitle({ title, matchedIndices }: { title: string; matchedInd
 						{categories.snippets.length > 0 && (
 							<div className="apps-section">
 								<div className="apps-section-header">SNIPPETS & TOOLS</div>
-								<div className="apps-section-items">
-									{categories.snippets.map(renderItemRow)}
-								</div>
+								<div className="apps-section-items">{categories.snippets.map(renderItemRow)}</div>
 							</div>
 						)}
 					</>

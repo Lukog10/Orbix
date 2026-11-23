@@ -3,6 +3,7 @@
 ## Proposed Changes
 
 ### Phase 1: Tauri Backend APIs (`src-tauri`)
+
 - Add `get_internet_status` command in `src-tauri/src/commands.rs` returning `{ connection_type: "ethernet" | "wifi" | "offline", label: String, is_connected: bool }`.
 - Add `get_available_wifi_networks` and `connect_wifi_network` in `src-tauri/src/services.rs` and `commands.rs`.
 - Add `get_microphone_state` and `toggle_microphone_mute` using Windows CoreAudio `IAudioEndpointVolume` on `eCapture` default device.
@@ -11,6 +12,7 @@
 - Verify with `cargo check --locked`.
 
 ### Phase 2: Frontend Components (`src/components/controls/`)
+
 - Create `src/components/controls/types.ts`:
   - `InternetStatusInfo`, `WifiNetworkEntry`, `MicrophoneState`, `SubViewMode`.
 - Create `src/components/controls/ControlsView.tsx`:
@@ -32,6 +34,7 @@
   - Reset sub-view on notch collapse or mode change.
 
 ### Phase 3: Verification & Build
+
 - Verify TypeScript with `bun run build`.
 - Verify Rust with `cargo check --locked`.
 - Git commit changes.
@@ -39,6 +42,7 @@
 ---
 
 ## Task List
+
 - [ ] Task 1: Implement Tauri backend commands (Internet status, Wi-Fi scanner, Mic mute, Workstation actions) in `src-tauri`
 - [ ] Task 2: Verify `cargo check --locked`
 - [ ] Task 3: Create frontend control components (`src/components/controls/*`)

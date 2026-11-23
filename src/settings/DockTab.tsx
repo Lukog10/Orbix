@@ -18,6 +18,7 @@ import {
 	X
 } from "lucide-react";
 import { SettingRow } from "./SettingRow";
+import GlideSelect from "../components/common/GlideSelect";
 import { KNOWN_FOLDER_OPTIONS, parseEnabledFolders, parseCustomFolders } from "../dockExtras";
 
 const START_ICON_PRESETS = [
@@ -140,15 +141,18 @@ export function DockTab({
 							label="Behavior"
 							desc="Choose how the dock appears"
 						>
-							<select
-								className="settings-select"
+							<GlideSelect
 								value={dockMode}
-								onChange={(e) => setDockModeValue(e.target.value)}
-							>
-								<option value="fixed">Fixed</option>
-								<option value="smart">Smart</option>
-								<option value="peek">Peek</option>
-							</select>
+								options={[
+									{ value: "fixed", label: "Fixed", tag: "Always On" },
+									{ value: "smart", label: "Smart", tag: "Auto-Hide" },
+									{ value: "peek", label: "Peek", tag: "Edge Hover" }
+								]}
+								onChange={(val) => setDockModeValue(val)}
+								size="sm"
+								menuWidth={170}
+								align="right"
+							/>
 						</SettingRow>
 
 						<SettingRow icon={Eye} label="Show App Previews" desc="Show window thumbnails on hover">
@@ -215,15 +219,18 @@ export function DockTab({
 							label="Dock Extras"
 							desc="Show drives, folders and the Recycle Bin beside the apps"
 						>
-							<select
-								className="settings-select"
+							<GlideSelect
 								value={dockExtrasPosition}
-								onChange={(e) => handleDockExtrasPositionChange(e.target.value)}
-							>
-								<option value="off">Off</option>
-								<option value="left">Left</option>
-								<option value="right">Right</option>
-							</select>
+								options={[
+									{ value: "off", label: "Off", tag: "Hidden" },
+									{ value: "left", label: "Left", tag: "Leading" },
+									{ value: "right", label: "Right", tag: "Trailing" }
+								]}
+								onChange={(val) => handleDockExtrasPositionChange(val)}
+								size="sm"
+								menuWidth={160}
+								align="right"
+							/>
 						</SettingRow>
 
 						{dockExtrasPosition !== "off" && (

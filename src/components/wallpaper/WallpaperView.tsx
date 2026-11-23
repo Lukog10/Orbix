@@ -13,10 +13,11 @@ import {
 	ChevronDown,
 	Play,
 	Pause,
-	Crop,
+	Crop
 } from "lucide-react";
-import { WallpaperFolderMenu } from "./WallpaperFolderMenu";
+import { WallpaperFolderMenu, saveRecentFolder } from "./WallpaperFolderMenu";
 import { WallpaperFramingModal } from "./WallpaperFramingModal";
+import GlideSelect, { type GlideOption } from "../common/GlideSelect";
 import "./WallpaperView.css";
 
 interface WallpaperItem {
@@ -26,6 +27,7 @@ interface WallpaperItem {
 
 interface WallpaperViewProps {
 	onClose?: () => void;
+	onFramingChange?: (isFraming: boolean) => void;
 }
 
 const PREVIEW_WIDTH = 90;
@@ -35,17 +37,30 @@ const WINDOW_SIZE = 17;
 const HALF_WINDOW = 8;
 const CONCURRENCY = 3;
 
+const FIT_OPTIONS: GlideOption[] = [
+	{ value: "fill", label: "Fill", tag: "Crop" },
+	{ value: "fit", label: "Fit", tag: "Letterbox" },
+	{ value: "stretch", label: "Stretch", tag: "Scale" },
+	{ value: "center", label: "Center", tag: "1:1" },
+	{ value: "span", label: "Span", tag: "Multi" },
+	{ value: "custom", label: "Custom", tag: "Framing" }
+];
+
 // In-memory module cache so wallpapers render immediately with no flicker on reopen
 const wallpaperThumbnailMemoryCache: Record<string, string | null> = {};
 
-export function WallpaperView({ onClose }: WallpaperViewProps) {
+export function WallpaperView({ onClose, onFramingChange }: WallpaperViewProps) {
 	const [wallpapers, setWallpapers] = useState<WallpaperItem[]>([]);
-	const [thumbnails, setThumbnails] = useState<Record<string, string | null>>(
-		() => ({ ...wallpaperThumbnailMemoryCache })
-	);
+	const [thumbnails, setThumbnails] = useState<Record<string, string | null>>(() => ({
+		...wallpaperThumbnailMemoryCache
+	}));
 	const [currentWallpaper, setCurrentWallpaper] = useState<string>("");
 	const [activeFolder, setActiveFolder] = useState<string>(() => {
-		return localStorage.getItem("bloom-wallpaper-folder") || "";
+		const saved = localStorage.getItem("bloom-wallpaper-folder") || "";
+		if (saved) {
+			saveRecentFolder(saved);
+		}
+		return saved;
 	});
 	const [activeIndex, setActiveIndex] = useState<number>(0);
 	const [isApplying, setIsApplying] = useState<string | null>(null);
@@ -55,11 +70,14 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 	const [fitMode, setFitMode] = useState<string>(() => {
 		return localStorage.getItem("bloom-wallpaper-fit") || "fill";
 	});
-	const [isFitMenuOpen, setIsFitMenuOpen] = useState(false);
 	const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false);
 	const [isSlideshowRunning, setIsSlideshowRunning] = useState(false);
 	const [slideshowLabel, setSlideshowLabel] = useState("15m");
 	const [framingItem, setFramingItem] = useState<WallpaperItem | null>(null);
+
+	useEffect(() => {
+		onFramingChange?.(Boolean(framingItem));
+	}, [framingItem, onFramingChange]);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const lastWheelTimeRef = useRef<number>(0);
@@ -74,7 +92,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 			setCurrentWallpaper(current || "");
 
 			const list = await invoke<WallpaperItem[]>("get_wallpapers", {
-				folder: folderPath || undefined,
+				folder: folderPath || undefined
 			});
 			setWallpapers(list);
 
@@ -252,7 +270,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 			const targetScroll = activeIndex * CARD_STEP;
 			container.scrollTo({
 				left: targetScroll,
-				behavior: "smooth",
+				behavior: "smooth"
 			});
 		}
 	}, [activeIndex, wallpapers.length]);
@@ -266,9 +284,8 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 					setFramingItem(null);
 					return;
 				}
-				if (isFolderMenuOpen || isFitMenuOpen) {
+				if (isFolderMenuOpen) {
 					setIsFolderMenuOpen(false);
-					setIsFitMenuOpen(false);
 					return;
 				}
 				onClose?.();
@@ -290,12 +307,36 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [wallpapers, activeIndex, onClose, framingItem, isFolderMenuOpen, isFitMenuOpen]);
+	}, [wallpapers, activeIndex, onClose, framingItem, isFolderMenuOpen]);
+
+	const handleBrowseFolder = async () => {
+		try {
+			await invoke("set_menu_open", { open: true, rect: null });
+			const { open } = await import("@tauri-apps/plugin-dialog");
+			const selected = await open({
+				directory: true,
+				multiple: false,
+				title: "Select Wallpaper Folder",
+				defaultPath: activeFolder || undefined
+			});
+			const folderPath = typeof selected === "string" ? selected : null;
+			if (folderPath) {
+				handleSelectFolder(folderPath);
+			}
+		} catch (err) {
+			console.error("Failed to browse folder:", err);
+		} finally {
+			await invoke("set_menu_open", { open: false, rect: null }).catch(() => {});
+		}
+	};
 
 	const handleSelectFolder = (newFolder: string) => {
 		setActiveFolder(newFolder);
 		localStorage.setItem("bloom-wallpaper-folder", newFolder);
 		invoke("save_setting", { key: "bloom-wallpaper-folder", value: newFolder }).catch(() => {});
+		if (newFolder) {
+			saveRecentFolder(newFolder);
+		}
 		loadWallpapers(newFolder);
 	};
 
@@ -313,7 +354,6 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 
 	const handleSelectFit = async (style: string) => {
 		setFitMode(style);
-		setIsFitMenuOpen(false);
 		localStorage.setItem("bloom-wallpaper-fit", style);
 		invoke("save_setting", { key: "bloom-wallpaper-fit", value: style }).catch(() => {});
 
@@ -324,6 +364,15 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 		}
 	};
 
+	const handleFitChange = (val: string) => {
+		if (val === "custom") {
+			const heroItem = wallpapers[activeIndex];
+			if (heroItem) setFramingItem(heroItem);
+			return;
+		}
+		void handleSelectFit(val);
+	};
+
 	const handleToggleSlideshow = async () => {
 		const nextState = !isSlideshowRunning;
 		setIsSlideshowRunning(nextState);
@@ -332,7 +381,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 			localStorage.setItem("bloom-wallpaper-slideshow-enabled", nextState ? "true" : "false");
 			invoke("save_setting", {
 				key: "bloom-wallpaper-slideshow-enabled",
-				value: nextState ? "true" : "false",
+				value: nextState ? "true" : "false"
 			}).catch(() => {});
 		} catch (err) {
 			console.error("Failed to toggle slideshow:", err);
@@ -357,16 +406,22 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 		}
 	};
 
-	const folderDisplayName = activeFolder
-		? activeFolder.split(/[\\/]/).filter(Boolean).pop() || "Folder"
-		: "Pictures";
+	const getFolderDisplayName = (folder: string) => {
+		if (!folder) return "Pictures";
+		const clean = folder.replace(/[\\/]+$/, "");
+		if (clean.toLowerCase() === "c:\\windows\\web\\wallpaper") {
+			return "Windows Wallpapers";
+		}
+		return clean.split(/[\\/]/).filter(Boolean).pop() || "Folder";
+	};
+
+	const folderDisplayName = getFolderDisplayName(activeFolder);
 
 	return (
 		<motion.div
 			className="wallpaper-panel-content"
 			onClick={() => {
 				setIsFolderMenuOpen(false);
-				setIsFitMenuOpen(false);
 			}}
 			onWheel={handleWheel}
 			initial={{ opacity: 0 }}
@@ -378,26 +433,52 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 			<div className="wallpaper-header">
 				<div className="wallpaper-header-left">
 					<div className="wallpaper-folder-menu-anchor relative">
-						<button
-							type="button"
-							className="wallpaper-folder-pill"
-							onClick={(e) => {
-								e.stopPropagation();
-								setIsFolderMenuOpen(!isFolderMenuOpen);
-								setIsFitMenuOpen(false);
-							}}
-							title={`Choose folder: ${activeFolder || "Pictures"}`}
+						<div
+							className="wallpaper-folder-split-pill"
+							onClick={(e) => e.stopPropagation()}
+							onMouseDown={(e) => e.stopPropagation()}
+							onPointerDown={(e) => e.stopPropagation()}
 						>
-							<FolderOpen size={12} strokeWidth={2.4} />
-							<span>{folderDisplayName}</span>
-							<ChevronDown size={10} strokeWidth={2.5} />
-						</button>
+							{/* Click folder name directly to browse a new folder */}
+							<button
+								type="button"
+								className="wallpaper-folder-btn"
+								onClick={(e) => {
+									e.stopPropagation();
+									setIsFolderMenuOpen(false);
+									void handleBrowseFolder();
+								}}
+								title={`Current: ${activeFolder || "Pictures"}\nClick to browse a new folder`}
+							>
+								<FolderOpen size={11} strokeWidth={2.2} />
+								<span className="wallpaper-folder-name">{folderDisplayName}</span>
+							</button>
+
+							{/* Vertical divider */}
+							<span className="wallpaper-folder-divider" aria-hidden="true" />
+
+							{/* Separate arrow button to toggle recent/current/preset folder dropdown */}
+							<button
+								type="button"
+								className={`wallpaper-folder-arrow-btn ${isFolderMenuOpen ? "is-active" : ""}`}
+								onClick={(e) => {
+									e.stopPropagation();
+									setIsFolderMenuOpen(!isFolderMenuOpen);
+								}}
+								title="Recent and preset folders"
+								aria-expanded={isFolderMenuOpen}
+								aria-haspopup="true"
+							>
+								<ChevronDown size={10} strokeWidth={2.2} />
+							</button>
+						</div>
 
 						<WallpaperFolderMenu
 							activeFolder={activeFolder}
 							isOpen={isFolderMenuOpen}
 							onClose={() => setIsFolderMenuOpen(false)}
 							onSelectFolder={handleSelectFolder}
+							onBrowseFolder={() => void handleBrowseFolder()}
 						/>
 					</div>
 
@@ -407,55 +488,27 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 				</div>
 
 				<div className="wallpaper-header-right">
-					{/* Fit Mode Selector Dropdown */}
-					<div className="wallpaper-fit-menu-anchor relative">
-						<button
-							type="button"
-							className="wallpaper-fit-pill"
-							onClick={(e) => {
-								e.stopPropagation();
-								setIsFitMenuOpen(!isFitMenuOpen);
-								setIsFolderMenuOpen(false);
-							}}
-							title="Wallpaper placement style"
-						>
-							<Maximize2 size={12} strokeWidth={2.2} />
-							<span>Fit: {fitMode.charAt(0).toUpperCase() + fitMode.slice(1)}</span>
-							<ChevronDown size={10} strokeWidth={2.5} />
-						</button>
-
-						{isFitMenuOpen && (
-							<div
-								className="wallpaper-fit-dropdown"
-								onClick={(e) => e.stopPropagation()}
-							>
-								{(["fill", "fit", "stretch", "center", "span"] as const).map((style) => (
-									<button
-										key={style}
-										type="button"
-										className={`wallpaper-menu-item ${fitMode === style ? "is-selected" : ""}`}
-										onClick={() => handleSelectFit(style)}
-									>
-										<span>{style.charAt(0).toUpperCase() + style.slice(1)}</span>
-										{fitMode === style && <Check size={12} className="wallpaper-menu-check" />}
-									</button>
-								))}
-								<div className="wallpaper-menu-divider" />
-								<button
-									type="button"
-									className="wallpaper-menu-item wallpaper-menu-crop-item"
-									onClick={() => {
-										setIsFitMenuOpen(false);
-										const heroItem = wallpapers[activeIndex];
-										if (heroItem) setFramingItem(heroItem);
-									}}
-								>
-									<Crop size={12} strokeWidth={2.2} />
-									<span>Custom Framing...</span>
-								</button>
-							</div>
-						)}
-					</div>
+					{/* Fit Mode Selector via GlideSelect */}
+					<GlideSelect
+						className="wallpaper-fit-select"
+						options={FIT_OPTIONS}
+						value={fitMode}
+						onChange={handleFitChange}
+						onOpenChange={(isOpen) => {
+							invoke("set_menu_open", { open: isOpen, rect: null }).catch(() => {});
+						}}
+						accentColor="rgba(255, 255, 255, 0.9)"
+						surfaceColor="rgba(20, 22, 28, 0.98)"
+						highlightColor="rgba(255, 255, 255, 0.12)"
+						textColor="rgba(255, 255, 255, 0.92)"
+						prefix="Fit: "
+						icon={<Maximize2 size={11} strokeWidth={2.2} />}
+						size="sm"
+						menuWidth={176}
+						placement="bottom"
+						align="right"
+						ariaLabel="Wallpaper placement style"
+					/>
 
 					{/* Slideshow Toggle Button */}
 					<button
@@ -465,9 +518,9 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 						title={isSlideshowRunning ? "Pause Slideshow" : "Start Slideshow"}
 					>
 						{isSlideshowRunning ? (
-							<Pause size={12} strokeWidth={2.4} />
+							<Pause size={11} strokeWidth={2.2} />
 						) : (
-							<Play size={12} strokeWidth={2.4} />
+							<Play size={11} strokeWidth={2.2} />
 						)}
 						<span>Slideshow ({slideshowLabel})</span>
 					</button>
@@ -479,7 +532,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 						onClick={() => loadWallpapers(activeFolder)}
 						title="Refresh folder"
 					>
-						<RotateCw size={13} strokeWidth={2.2} className={isLoading ? "animate-spin" : ""} />
+						<RotateCw size={11} strokeWidth={2.2} className={isLoading ? "animate-spin" : ""} />
 					</button>
 
 					{/* Close Button */}
@@ -490,7 +543,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 							onClick={onClose}
 							title="Close Wallpaper Carousel (Esc)"
 						>
-							<X size={13} strokeWidth={2.4} />
+							<X size={12} strokeWidth={2.2} />
 						</button>
 					)}
 				</div>
@@ -542,11 +595,6 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 										setActiveIndex(idx);
 									}
 								}}
-								title={
-									isHero
-										? `Click to apply: ${item.name}`
-										: `Click or scroll to view: ${item.name}`
-								}
 							>
 								{/* Slanted Image Viewport */}
 								<div className="wallpaper-slanted-thumb">
@@ -585,7 +633,7 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 												}}
 												title="Adjust custom position and framing"
 											>
-												<Crop size={12} strokeWidth={2.4} />
+												<Crop size={11} strokeWidth={2.2} />
 												<span>Adjust Framing</span>
 											</button>
 										</div>
@@ -611,6 +659,11 @@ export function WallpaperView({ onClose }: WallpaperViewProps) {
 					<WallpaperFramingModal
 						wallpaperPath={framingItem.path}
 						wallpaperName={framingItem.name}
+						initialThumbnail={
+							thumbnails[framingItem.path] ??
+							wallpaperThumbnailMemoryCache[framingItem.path] ??
+							undefined
+						}
 						onClose={() => setFramingItem(null)}
 						onApplied={(newPath) => {
 							setCurrentWallpaper(newPath);

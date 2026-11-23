@@ -13,7 +13,7 @@
 	justify-content: space-between;
 	color: var(--bloom-text, white);
 	border-radius: 0 0 20px 20px;
-	overflow: hidden;
+	overflow: visible;
 	user-select: none;
 }
 
@@ -35,56 +35,121 @@
 	gap: 12px;
 }
 
-/* Brand Violet Pill Button (#6B5290) */
-.wallpaper-folder-pill {
+.wallpaper-folder-menu-anchor {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	z-index: 60;
+}
+
+/* Folder Split Pill Button: matching Fit & Slideshow glassy styling */
+.wallpaper-folder-split-pill {
+	display: inline-flex;
+	align-items: center;
+	height: 26px;
+	border-radius: 7px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-sizing: border-box;
+	overflow: hidden;
+	transition: all 0.18s ease;
+}
+
+.wallpaper-folder-split-pill:hover {
+	background: rgba(255, 255, 255, 0.12);
+	border-color: rgba(255, 255, 255, 0.2);
+}
+
+.wallpaper-folder-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 4px 14px;
-	border-radius: 999px;
-	background: var(--bloom-accent, #6B5290);
-	border: 1px solid rgba(255, 255, 255, 0.35);
-	color: #ffffff;
-	font-size: 11.5px;
-	font-weight: 700;
+	height: 100%;
+	padding: 0 8px 0 9px;
+	background: transparent;
+	border: none;
+	color: rgba(255, 255, 255, 0.82);
+	font-size: 11px;
+	font-weight: 500;
 	letter-spacing: 0.01em;
 	cursor: pointer;
-	transition: all 0.18s ease;
 	outline: none;
-	box-shadow: 0 2px 10px rgba(107, 82, 144, 0.38);
+	transition:
+		background 0.15s ease,
+		color 0.15s ease;
 }
 
-.wallpaper-folder-pill:hover {
-	background: color-mix(in srgb, var(--bloom-accent, #6B5290) 85%, #ffffff 15%);
-	transform: translateY(-1px);
-	box-shadow: 0 4px 14px rgba(107, 82, 144, 0.55);
+.wallpaper-folder-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: #ffffff;
 }
 
-.wallpaper-folder-pill:active {
-	transform: translateY(0);
+.wallpaper-folder-btn:active {
+	background: rgba(255, 255, 255, 0.16);
 }
 
 .wallpaper-folder-name {
-	font-size: 12.5px;
-	font-weight: 600;
+	font-size: 11.5px;
+	font-weight: 500;
 	color: rgba(255, 255, 255, 0.9);
-	max-width: 220px;
+	max-width: 170px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.wallpaper-folder-divider {
+	width: 1px;
+	height: 14px;
+	background: rgba(255, 255, 255, 0.15);
+	flex-shrink: 0;
+}
+
+.wallpaper-folder-arrow-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 100%;
+	background: transparent;
+	border: none;
+	color: rgba(255, 255, 255, 0.65);
+	cursor: pointer;
+	outline: none;
+	transition:
+		background 0.15s ease,
+		color 0.15s ease;
+}
+
+.wallpaper-folder-arrow-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: #ffffff;
+}
+
+.wallpaper-folder-arrow-btn.is-active {
+	background: rgba(255, 255, 255, 0.15);
+	color: #ffffff;
+}
+
+.wallpaper-folder-arrow-btn svg {
+	transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wallpaper-folder-arrow-btn.is-active svg {
+	transform: rotate(180deg);
+}
+
 .wallpaper-count-text {
-	font-size: 12px;
-	font-weight: 500;
-	color: rgba(255, 255, 255, 0.48);
+	font-size: 11px;
+	font-weight: 450;
+	color: rgba(255, 255, 255, 0.45);
 	letter-spacing: 0.01em;
 }
 
 .wallpaper-header-right {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 }
 
 .wallpaper-refresh-btn {
@@ -93,9 +158,9 @@
 	justify-content: center;
 	width: 26px;
 	height: 26px;
-	border-radius: 8px;
+	border-radius: 7px;
 	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.1);
 	color: rgba(255, 255, 255, 0.65);
 	cursor: pointer;
 	transition: all 0.18s ease;
@@ -103,7 +168,7 @@
 }
 
 .wallpaper-refresh-btn:hover {
-	background: rgba(255, 255, 255, 0.16);
+	background: rgba(255, 255, 255, 0.14);
 	color: #ffffff;
 	transform: translateY(-0.5px);
 }
@@ -114,9 +179,9 @@
 	justify-content: center;
 	width: 26px;
 	height: 26px;
-	border-radius: 8px;
+	border-radius: 7px;
 	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.1);
 	color: rgba(255, 255, 255, 0.65);
 	cursor: pointer;
 	transition: all 0.18s ease;
@@ -193,52 +258,54 @@
 	background: rgba(255, 255, 255, 0.05);
 	border: 1.5px solid rgba(255, 255, 255, 0.09);
 	box-sizing: border-box;
-	/* No z-index transition so active cards jump to front layer immediately */
-	transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-		transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-		border-color 0.25s ease,
-		box-shadow 0.25s ease,
-		opacity 0.25s ease,
-		filter 0.25s ease;
+	contain: paint layout;
+	will-change: transform;
+	transition:
+		width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+		transform 0.2s ease,
+		border-color 0.2s ease,
+		opacity 0.2s ease;
 }
 
 /* Compressed Sibling Preview Cards: flank symmetrically on both sides */
 .wallpaper-slanted-card.is-preview {
 	width: 90px;
-	opacity: 0.7;
-	filter: brightness(0.9);
+	opacity: 0.65;
 	z-index: 2;
 	transform: skewX(-10deg) scale(0.97);
 }
 
 /* Subtle preview hover: sleek highlight without jumping activeIndex */
 .wallpaper-slanted-card.is-preview:hover {
-	opacity: 0.92;
-	filter: brightness(0.98);
-	border-color: rgba(255, 255, 255, 0.32);
+	opacity: 0.95;
+	border-color: rgba(255, 255, 255, 0.35);
 	transform: skewX(-10deg) scale(0.99) translateY(-2px);
-	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* Expanded Hero Card: Center anchor, comes to front, illuminated */
 .wallpaper-slanted-card.is-hero {
 	width: 420px;
 	opacity: 1;
-	filter: brightness(1);
 	z-index: 50; /* Sits cleanly on top of all adjacent cards */
 	transform: skewX(-10deg) scale(1.02);
 	border-color: rgba(255, 255, 255, 0.38);
-	box-shadow: 0 20px 52px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.16);
+	box-shadow:
+		0 20px 52px rgba(0, 0, 0, 0.85),
+		0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .wallpaper-slanted-card.is-current {
 	border-color: #0a84ff;
-	box-shadow: 0 20px 52px rgba(0, 0, 0, 0.85), 0 0 26px rgba(10, 132, 255, 0.42);
+	box-shadow:
+		0 20px 52px rgba(0, 0, 0, 0.85),
+		0 0 26px rgba(10, 132, 255, 0.42);
 }
 
 .wallpaper-slanted-card.is-applying {
 	border-color: #30d158;
-	box-shadow: 0 20px 52px rgba(0, 0, 0, 0.85), 0 0 30px rgba(48, 209, 88, 0.55);
+	box-shadow:
+		0 20px 52px rgba(0, 0, 0, 0.85),
+		0 0 30px rgba(48, 209, 88, 0.55);
 }
 
 /* Slanted Thumbnail Viewport */
@@ -250,6 +317,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	contain: strict;
 }
 
 /* Counter-skewed Image: preserves natural 16:9 aspect ratio with zero distortion */
@@ -257,14 +325,10 @@
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
-	image-rendering: -webkit-optimize-contrast;
 	image-rendering: high-quality;
-	transform: skewX(10deg) scale(1.36);
-	transition: transform 0.35s ease;
-}
-
-.wallpaper-slanted-card.is-hero:hover .wallpaper-slanted-thumb img {
-	transform: skewX(10deg) scale(1.4);
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+	transform: skewX(10deg) scale(1.36) translateZ(0);
 }
 
 .wallpaper-placeholder {
@@ -284,7 +348,7 @@
 	right: 10px;
 	z-index: 7;
 	transform: skewX(10deg);
-	background: var(--bloom-accent, #6B5290);
+	background: var(--bloom-accent, #6b5290);
 	border: 1px solid rgba(255, 255, 255, 0.35);
 	color: #ffffff;
 	width: 22px;
@@ -303,12 +367,12 @@
 	left: 10px;
 	z-index: 7;
 	transform: skewX(10deg);
-	background: var(--bloom-accent, #6B5290);
+	background: var(--bloom-accent, #6b5290);
 	border: 1px solid rgba(255, 255, 255, 0.35);
 	color: #ffffff;
-	font-size: 10.5px;
-	font-weight: 700;
-	padding: 3px 9px;
+	font-size: 10px;
+	font-weight: 550;
+	padding: 3px 8px;
 	border-radius: 999px;
 	display: inline-flex;
 	align-items: center;
@@ -316,41 +380,19 @@
 	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
-/* Fit Mode Selector Pill */
-.wallpaper-fit-pill {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 4px 10px;
-	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	color: rgba(255, 255, 255, 0.85);
-	font-size: 11.5px;
-	font-weight: 600;
-	cursor: pointer;
-	transition: all 0.18s ease;
-	outline: none;
-}
-
-.wallpaper-fit-pill:hover {
-	background: rgba(255, 255, 255, 0.12);
-	border-color: rgba(255, 255, 255, 0.22);
-	color: #ffffff;
-}
-
 /* Slideshow Toggle Button */
 .wallpaper-slideshow-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	padding: 4px 10px;
-	border-radius: 8px;
+	gap: 5px;
+	height: 26px;
+	padding: 0 9px;
+	border-radius: 7px;
 	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	color: rgba(255, 255, 255, 0.85);
-	font-size: 11.5px;
-	font-weight: 600;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.82);
+	font-size: 11px;
+	font-weight: 500;
 	cursor: pointer;
 	transition: all 0.18s ease;
 	outline: none;
@@ -358,15 +400,15 @@
 
 .wallpaper-slideshow-btn:hover {
 	background: rgba(255, 255, 255, 0.12);
-	border-color: rgba(255, 255, 255, 0.22);
+	border-color: rgba(255, 255, 255, 0.2);
 	color: #ffffff;
 }
 
 .wallpaper-slideshow-btn.is-active {
-	background: color-mix(in srgb, var(--bloom-accent, #6B5290) 25%, transparent);
-	border-color: var(--bloom-accent, #6B5290);
+	background: color-mix(in srgb, var(--bloom-accent, #6b5290) 25%, rgba(255, 255, 255, 0.04));
+	border-color: var(--bloom-accent, #6b5290);
 	color: #ffffff;
-	box-shadow: 0 0 12px rgba(107, 82, 144, 0.35);
+	box-shadow: 0 0 10px rgba(107, 82, 144, 0.3);
 }
 
 /* Dropdown Menus (Folder Presets & Fit Mode) */
@@ -375,18 +417,86 @@
 	position: absolute;
 	top: calc(100% + 6px);
 	left: 0;
-	min-width: 200px;
-	background: rgba(20, 22, 28, 0.96);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	border-radius: 12px;
-	box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
-	padding: 6px;
-	z-index: 50;
+	min-width: 220px;
+	max-width: 320px;
+	max-height: 260px;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	background: rgba(20, 22, 28, 0.98);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 9px;
+	box-shadow:
+		0 16px 36px rgba(0, 0, 0, 0.75),
+		0 0 0 1px rgba(255, 255, 255, 0.08);
+	padding: 5px;
+	z-index: 100;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+	animation: wallpaperDropdownIn 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Scale Fitting Dropdown (GlideSelect) Neutral Glass Styling */
+.wallpaper-fit-select {
+	--gs-accent: #ffffff;
+	--gs-surface: rgba(20, 22, 28, 0.98);
+	--gs-highlight: rgba(255, 255, 255, 0.12);
+	--gs-text: rgba(255, 255, 255, 0.92);
+}
+
+.wallpaper-fit-select .glide-select__trigger {
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wallpaper-fit-select .glide-select__trigger:hover {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.2);
+}
+
+.wallpaper-fit-select .glide-select__trigger[aria-expanded="true"] {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.25);
+	box-shadow: none;
+}
+
+.wallpaper-fit-select .glide-select__trigger[aria-expanded="true"] .glide-select__chevron {
+	color: #ffffff;
+}
+
+.wallpaper-fit-select .glide-select__menu {
+	background: rgba(20, 22, 28, 0.98);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow:
+		0 16px 36px rgba(0, 0, 0, 0.75),
+		0 0 0 1px rgba(255, 255, 255, 0.08);
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+
+.wallpaper-fit-select .glide-select__pill {
+	background: rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	box-shadow: none;
+}
+
+.wallpaper-fit-select .glide-select__option[aria-selected="true"] {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.wallpaper-fit-select .glide-select__check {
+	color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes wallpaperDropdownIn {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
 }
 
 .wallpaper-fit-dropdown {
@@ -396,8 +506,8 @@
 }
 
 .wallpaper-menu-section-title {
-	font-size: 10px;
-	font-weight: 700;
+	font-size: 9.5px;
+	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	color: rgba(255, 255, 255, 0.4);
@@ -408,13 +518,13 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 6px 10px;
-	border-radius: 7px;
+	padding: 5px 9px;
+	border-radius: 6px;
 	background: transparent;
 	border: none;
 	color: rgba(255, 255, 255, 0.85);
-	font-size: 12px;
-	font-weight: 500;
+	font-size: 11.5px;
+	font-weight: 450;
 	cursor: pointer;
 	transition: all 0.14s ease;
 	text-align: left;
@@ -428,9 +538,9 @@
 }
 
 .wallpaper-menu-item.is-selected {
-	background: color-mix(in srgb, var(--bloom-accent, #6B5290) 25%, transparent);
+	background: rgba(255, 255, 255, 0.12);
 	color: #ffffff;
-	font-weight: 600;
+	font-weight: 500;
 }
 
 .wallpaper-menu-item-left {
@@ -448,11 +558,11 @@
 }
 
 .wallpaper-menu-item.is-selected .wallpaper-menu-item-icon {
-	color: var(--bloom-accent, #6B5290);
+	color: #ffffff;
 }
 
 .wallpaper-menu-check {
-	color: var(--bloom-accent, #6B5290);
+	color: rgba(255, 255, 255, 0.9);
 	flex-shrink: 0;
 }
 
@@ -492,13 +602,18 @@
 }
 
 .wallpaper-menu-crop-item {
-	color: var(--bloom-accent, #6B5290);
-	font-weight: 600;
+	color: rgba(255, 255, 255, 0.9);
+	font-weight: 500;
 }
 
 .wallpaper-menu-browse-btn {
-	color: var(--bloom-accent, #6B5290);
-	font-weight: 600;
+	color: rgba(255, 255, 255, 0.92);
+	font-weight: 500;
+}
+
+.wallpaper-menu-browse-btn:hover {
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.1);
 }
 
 /* Adjust Framing Overlay Button on Hero Card */
@@ -518,16 +633,16 @@
 .wallpaper-hero-crop-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	padding: 5px 12px;
+	gap: 5px;
+	padding: 4px 10px;
 	border-radius: 999px;
 	background: rgba(16, 18, 24, 0.88);
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	color: #ffffff;
-	font-size: 11px;
-	font-weight: 600;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	color: rgba(255, 255, 255, 0.9);
+	font-size: 10.5px;
+	font-weight: 500;
 	cursor: pointer;
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 	transition: all 0.18s ease;
@@ -536,25 +651,26 @@
 
 .wallpaper-hero-crop-btn:hover {
 	background: rgba(24, 26, 36, 0.95);
-	border-color: var(--bloom-accent, #6B5290);
-	transform: scale(1.04);
-	box-shadow: 0 6px 20px rgba(107, 82, 144, 0.4);
+	border-color: var(--bloom-accent, #6b5290);
+	transform: scale(1.02);
+	box-shadow: 0 4px 18px rgba(107, 82, 144, 0.4);
 }
 
 /* Custom Framing View Overlay */
 .wallpaper-framing-overlay {
 	position: absolute;
 	inset: 0;
-	background: rgba(12, 14, 18, 0.97);
-	backdrop-filter: blur(32px);
-	-webkit-backdrop-filter: blur(32px);
+	background: rgba(14, 16, 22, 0.96);
+	backdrop-filter: blur(28px);
+	-webkit-backdrop-filter: blur(28px);
 	z-index: 100;
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	padding: 12px 16px;
+	padding: 10px 18px 12px;
 	border-radius: 0 0 20px 20px;
 	box-sizing: border-box;
+	overflow: hidden;
 }
 
 .wallpaper-framing-header {
@@ -562,42 +678,49 @@
 	align-items: center;
 	justify-content: space-between;
 	height: 32px;
+	flex-shrink: 0;
 }
 
 .wallpaper-framing-title-group {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 }
 
 .wallpaper-framing-badge {
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	padding: 3px 9px;
+	padding: 3px 8px;
 	border-radius: 6px;
-	background: color-mix(in srgb, var(--bloom-accent, #6B5290) 25%, transparent);
-	border: 1px solid var(--bloom-accent, #6B5290);
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.15);
 	color: #ffffff;
-	font-size: 11px;
-	font-weight: 700;
+	font-size: 10.5px;
+	font-weight: 550;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
 
 .wallpaper-framing-filename {
-	font-size: 12.5px;
-	font-weight: 600;
+	font-size: 12px;
+	font-weight: 500;
 	color: rgba(255, 255, 255, 0.9);
-	max-width: 260px;
+	max-width: 240px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.wallpaper-framing-screen-ratio {
-	font-size: 11.5px;
-	color: rgba(255, 255, 255, 0.45);
+.wallpaper-framing-screen-ratio,
+.wallpaper-framing-dimensions {
+	font-size: 10.5px;
+	color: rgba(255, 255, 255, 0.5);
+	background: rgba(255, 255, 255, 0.05);
+	padding: 2px 7px;
+	border-radius: 5px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	white-space: nowrap;
 }
 
 .wallpaper-framing-actions {
@@ -647,39 +770,50 @@
 /* Framing Interactive Canvas */
 .wallpaper-framing-canvas-area {
 	flex: 1;
+	min-height: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
 	cursor: grab;
+	user-select: none;
 	position: relative;
-	margin: 6px 0;
+	margin: 8px 0;
+	background: #08090c;
+	border-radius: 10px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .wallpaper-framing-canvas-area:active {
 	cursor: grabbing;
 }
 
-.wallpaper-framing-viewport {
+/* Viewport frame container */
+.wallpaper-framing-viewport-container {
 	position: relative;
-	border: 2px dashed var(--bloom-accent, #6B5290);
-	border-radius: 8px;
-	overflow: hidden;
-	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75), 0 8px 32px rgba(0, 0, 0, 0.8);
-	background: #000000;
+	overflow: visible;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	flex-shrink: 0;
+}
+
+/* Screen aspect ratio mask: interior is clear, exterior is darkened by 65% box-shadow */
+.wallpaper-framing-viewport-mask {
+	position: absolute;
+	inset: 0;
+	border: 2px dashed rgba(255, 255, 255, 0.85);
+	border-radius: 8px;
+	box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65);
+	pointer-events: none;
+	z-index: 5;
 }
 
 .wallpaper-framing-image {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
+	display: block;
 	pointer-events: none;
 	user-select: none;
-	transition: transform 0.05s ease-out;
+	z-index: 1;
 }
 
 .wallpaper-framing-grid {
@@ -689,11 +823,11 @@
 	grid-template-columns: repeat(3, 1fr);
 	grid-template-rows: repeat(3, 1fr);
 	pointer-events: none;
-	opacity: 0.25;
+	opacity: 0.22;
 }
 
 .grid-cell {
-	border-color: rgba(255, 255, 255, 0.4);
+	border-color: rgba(255, 255, 255, 0.35);
 }
 
 .wallpaper-framing-drag-hint {
@@ -707,6 +841,7 @@
 	font-size: 10.5px;
 	color: rgba(255, 255, 255, 0.7);
 	pointer-events: none;
+	z-index: 6;
 }
 
 /* Framing Footer Controls */
@@ -714,9 +849,56 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	height: 36px;
+	height: 40px;
+	flex-shrink: 0;
 	border-top: 1px solid rgba(255, 255, 255, 0.08);
 	padding-top: 8px;
+	gap: 12px;
+}
+
+.wallpaper-framing-footer-left {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+/* Mode toggles (Fit All / Fill Frame) */
+.wallpaper-framing-mode-group {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: rgba(255, 255, 255, 0.06);
+	padding: 2px;
+	border-radius: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.wallpaper-framing-mode-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 26px;
+	padding: 0 10px;
+	border-radius: 6px;
+	background: transparent;
+	border: none;
+	color: rgba(255, 255, 255, 0.7);
+	font-size: 11px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.wallpaper-framing-mode-btn:hover {
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.wallpaper-framing-mode-btn.is-active {
+	background: rgba(255, 255, 255, 0.16);
+	color: #ffffff;
+	font-weight: 600;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .wallpaper-framing-zoom-controls {
@@ -735,8 +917,8 @@
 }
 
 .wallpaper-zoom-slider {
-	width: 120px;
-	accent-color: var(--bloom-accent, #6B5290);
+	width: 110px;
+	accent-color: var(--bloom-accent, #6b5290);
 	cursor: pointer;
 }
 
@@ -744,7 +926,7 @@
 	font-size: 11.5px;
 	font-family: monospace;
 	color: rgba(255, 255, 255, 0.85);
-	min-width: 32px;
+	min-width: 36px;
 }
 
 .wallpaper-framing-footer-actions {
@@ -754,13 +936,13 @@
 }
 
 .wallpaper-btn-cancel {
-	padding: 5px 14px;
-	border-radius: 8px;
+	padding: 5px 12px;
+	border-radius: 7px;
 	background: rgba(255, 255, 255, 0.08);
 	border: 1px solid rgba(255, 255, 255, 0.15);
 	color: rgba(255, 255, 255, 0.85);
-	font-size: 12px;
-	font-weight: 600;
+	font-size: 11.5px;
+	font-weight: 500;
 	cursor: pointer;
 	transition: all 0.14s ease;
 }
@@ -774,20 +956,20 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 5px 16px;
-	border-radius: 8px;
-	background: var(--bloom-accent, #6B5290);
+	padding: 5px 14px;
+	border-radius: 7px;
+	background: var(--bloom-accent, #6b5290);
 	border: 1px solid rgba(255, 255, 255, 0.3);
 	color: #ffffff;
-	font-size: 12px;
-	font-weight: 700;
+	font-size: 11.5px;
+	font-weight: 550;
 	cursor: pointer;
 	transition: all 0.18s ease;
 	box-shadow: 0 2px 10px rgba(107, 82, 144, 0.4);
 }
 
 .wallpaper-btn-apply:hover {
-	background: color-mix(in srgb, var(--bloom-accent, #6B5290) 85%, #ffffff 15%);
+	background: color-mix(in srgb, var(--bloom-accent, #6b5290) 85%, #ffffff 15%);
 	box-shadow: 0 4px 16px rgba(107, 82, 144, 0.6);
 	transform: translateY(-0.5px);
 }

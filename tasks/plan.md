@@ -1,6 +1,7 @@
 # Implementation Plan: Wallpaper Carousel Performance & Scaling
 
 ## Overview
+
 Scale the Orbix wallpaper carousel to handle collections of thousands of pictures smoothly. We implement direct non-recursive folder scanning, an 800x450 Retina thumbnail resolution, a persistent disk cache in `%LOCALAPPDATA%\Orbix\wallpaper_cache`, carousel track window virtualization (rendering 17 cards around the active item), and a windowed priority thumbnail queue.
 
 ---
@@ -8,6 +9,7 @@ Scale the Orbix wallpaper carousel to handle collections of thousands of picture
 ## Tasks
 
 ### Task 1: Backend Non-Recursive Direct Folder Scanning
+
 - **Location**: `src-tauri/src/wallpaper.rs`
 - **Details**:
   - Update `collect_images_from_dir` to read only the immediate directory entries.
@@ -17,6 +19,7 @@ Scale the Orbix wallpaper carousel to handle collections of thousands of picture
   - Unit tests in `wallpaper.rs` pass.
 
 ### Task 2: Backend 800x450 Thumbnail Resolution & Persistent Disk Cache
+
 - **Location**: `src-tauri/src/wallpaper.rs`
 - **Details**:
   - Set thumbnail generation size to `800x450`.
@@ -30,6 +33,7 @@ Scale the Orbix wallpaper carousel to handle collections of thousands of picture
   - Test verifying cache directory creation and thumbnail generation.
 
 ### Task 3: Frontend Carousel Track Virtualization (17 Cards)
+
 - **Location**: `src/components/wallpaper/WallpaperView.tsx`
 - **Details**:
   - Define `BUFFER_SIZE = 8` (`activeIndex - 8` to `activeIndex + 8`, total 17 cards).
@@ -42,6 +46,7 @@ Scale the Orbix wallpaper carousel to handle collections of thousands of picture
   - DOM contains at most 17 card elements regardless of list length.
 
 ### Task 4: Frontend Priority Queue & Batched Thumbnail Loading
+
 - **Location**: `src/components/wallpaper/WallpaperView.tsx`
 - **Details**:
   - Remove the uncontrolled `list.forEach` full-folder preload.
@@ -55,6 +60,7 @@ Scale the Orbix wallpaper carousel to handle collections of thousands of picture
   - `bun run build` passes.
 
 ### Task 5: Final Validation & Release Build
+
 - **Details**:
   - Run `bun test` and `cargo test --locked`.
   - Run `bun run build`.

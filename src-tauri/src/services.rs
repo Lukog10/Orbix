@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{
-    atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU8, AtomicU32, Ordering},
+    atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU32, AtomicU8, Ordering},
     Mutex, OnceLock,
 };
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -307,7 +307,12 @@ pub fn setup_window_change_hook(app_handle: AppHandle) {
         );
 
         // Store hooks to prevent them from being dropped
-        Box::leak(Box::new((_create_hook, _destroy_hook, _show_hook, _hide_hook)));
+        Box::leak(Box::new((
+            _create_hook,
+            _destroy_hook,
+            _show_hook,
+            _hide_hook,
+        )));
     }
 }
 
@@ -330,16 +335,13 @@ unsafe extern "system" fn window_change_event_proc(
     }
 
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongW, GetWindowThreadProcessId, IsWindow, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
-        EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW,
+        GetWindowLongW, GetWindowThreadProcessId, IsWindow, EVENT_OBJECT_DESTROY,
+        EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
     };
 
     // A top-level window appeared/disappeared (or focus moved): capture UI
     // state may have changed. Cheap flag; the worker thread does the scan.
-    if event == EVENT_OBJECT_SHOW
-        || event == EVENT_OBJECT_HIDE
-        || event == EVENT_OBJECT_DESTROY
-    {
+    if event == EVENT_OBJECT_SHOW || event == EVENT_OBJECT_HIDE || event == EVENT_OBJECT_DESTROY {
         CAPTURE_RECHECK.store(true, Ordering::Relaxed);
     }
 
@@ -514,9 +516,11 @@ unsafe extern "system" fn focus_event_proc(
                     guard.insert(hwnd_raw, (img, crate::utils::get_now_ms()));
                     if guard.len() > 15 {
                         use windows::Win32::UI::WindowsAndMessaging::IsWindow;
-                        guard.retain(|&k, _| unsafe { IsWindow(Some(HWND(k as *mut _))).as_bool() });
+                        guard
+                            .retain(|&k, _| unsafe { IsWindow(Some(HWND(k as *mut _))).as_bool() });
                         if guard.len() > 15 {
-                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            let mut entries: Vec<(isize, i64)> =
+                                guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
                             entries.sort_by_key(|e| e.1);
                             let to_remove = guard.len() - 15;
                             for (old_k, _) in entries.into_iter().take(to_remove) {
@@ -612,7 +616,8 @@ unsafe extern "system" fn thumbnail_capture_proc(
                         guard
                             .retain(|&k, _| unsafe { IsWindow(Some(HWND(k as *mut _))).as_bool() });
                         if guard.len() > 15 {
-                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            let mut entries: Vec<(isize, i64)> =
+                                guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
                             entries.sort_by_key(|e| e.1);
                             let to_remove = guard.len() - 15;
                             for (old_k, _) in entries.into_iter().take(to_remove) {
@@ -877,13 +882,12 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
                                             {
                                                 let mut total_mag = 0.0f32;
                                                 let mut count = 0u32;
-                                                for bin in bin_start..bin_end {
-                                                    if bin >= FFT_SIZE / 2 {
-                                                        break;
+                                                let slice_end = bin_end.min(FFT_SIZE / 2);
+                                                if bin_start < slice_end {
+                                                    for item in &fft_input[bin_start..slice_end] {
+                                                        total_mag += item.norm();
+                                                        count += 1;
                                                     }
-                                                    let mag = fft_input[bin].norm();
-                                                    total_mag += mag;
-                                                    count += 1;
                                                 }
                                                 let avg_mag = total_mag / count.max(1) as f32;
                                                 let mut scaled_mag = avg_mag;
@@ -899,11 +903,13 @@ pub fn setup_audio_visualization(app_handle: AppHandle) {
                                                 .min(1.0)
                                                 .powf(0.75);
                                                 let is_rising = target > prev_values[band_idx];
-                                                let smooth_factor = if is_rising { 0.10 } else { 0.20 };
+                                                let smooth_factor =
+                                                    if is_rising { 0.10 } else { 0.20 };
                                                 output[band_idx] = prev_values[band_idx]
                                                     * smooth_factor
                                                     + target * (1.0 - smooth_factor);
-                                                output[band_idx] = output[band_idx].clamp(0.18, 1.0);
+                                                output[band_idx] =
+                                                    output[band_idx].clamp(0.18, 1.0);
                                                 prev_values[band_idx] = output[band_idx];
                                             }
                                             let _ = app_handle.emit(
@@ -961,7 +967,11 @@ pub fn query_audio_devices_status(
         if let Ok(render_dev) = enumerator.GetDefaultAudioEndpoint(eRender, eConsole) {
             if let Ok(store) = render_dev.OpenPropertyStore(STGM(0)) {
                 if let Ok(prop) = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME) {
-                    if let Ok(pwstr) = windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(&prop) {
+                    if let Ok(pwstr) =
+                        windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(
+                            &prop,
+                        )
+                    {
                         let name = String::from_utf16_lossy(pwstr.as_wide()).trim().to_string();
                         windows::Win32::System::Com::CoTaskMemFree(Some(pwstr.0 as *const _));
                         let lower = name.to_lowercase();
@@ -980,7 +990,9 @@ pub fn query_audio_devices_status(
                         headphone_name = name;
                     }
                     let mut prop_mut = prop;
-                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(&mut prop_mut);
+                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(
+                        &mut prop_mut,
+                    );
                 }
             }
         }
@@ -990,13 +1002,19 @@ pub fn query_audio_devices_status(
             mic_connected = true;
             if let Ok(store) = capture_dev.OpenPropertyStore(STGM(0)) {
                 if let Ok(prop) = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME) {
-                    if let Ok(pwstr) = windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(&prop) {
+                    if let Ok(pwstr) =
+                        windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc(
+                            &prop,
+                        )
+                    {
                         let name = String::from_utf16_lossy(pwstr.as_wide()).trim().to_string();
                         windows::Win32::System::Com::CoTaskMemFree(Some(pwstr.0 as *const _));
                         mic_name = name;
                     }
                     let mut prop_mut = prop;
-                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(&mut prop_mut);
+                    let _ = windows::Win32::System::Com::StructuredStorage::PropVariantClear(
+                        &mut prop_mut,
+                    );
                 }
             }
         }
@@ -1990,7 +2008,7 @@ pub fn setup_brightness_worker() {
         let locator: IWbemLocator = match CoCreateInstance(&WbemLocator, None, CLSCTX_ALL) {
             Ok(l) => l,
             Err(_) => {
-                let _ = CoUninitialize();
+                CoUninitialize();
                 return;
             }
         };
@@ -2007,7 +2025,7 @@ pub fn setup_brightness_worker() {
         ) {
             Ok(s) => s,
             Err(_) => {
-                let _ = CoUninitialize();
+                CoUninitialize();
                 return;
             }
         };
@@ -2124,7 +2142,7 @@ pub fn setup_brightness_worker() {
             // 2. Desktop external monitor via Physical Monitor API (DXVA2 DDC/CI)
             set_physical_monitors_brightness(brightness);
         }
-        let _ = CoUninitialize();
+        CoUninitialize();
     });
 }
 
@@ -2356,16 +2374,23 @@ fn top_edge_dwell_ms(app_handle: &AppHandle) -> i64 {
         .clamp(0, 2000)
 }
 
-/// True when the cursor sits inside the top-edge hot band on the primary
-/// monitor. Shared by the dwell gate and top-edge hit-testing continuity.
+/// True when the cursor sits inside the top-edge hot band directly above the notch.
+/// Centered on the monitor (±260px) so it reveals the notch when intended,
+/// but never triggers near the top-right corner (window caption buttons: minimize, maximize, close)
+/// or the outer edges of the screen.
 fn in_top_edge_band(cursor: windows::Win32::Foundation::POINT, scale: f64) -> bool {
     let mon_x = MH_CACHED_MON_X.load(Ordering::Relaxed);
     let mon_y = MH_CACHED_MON_Y.load(Ordering::Relaxed);
     let mon_w = MH_CACHED_MON_W.load(Ordering::Relaxed);
 
-    cursor.y <= (mon_y + (TOP_EDGE_BAND_PX * scale) as i32)
-        && cursor.x >= mon_x
-        && cursor.x <= (mon_x + mon_w)
+    let band_h = (TOP_EDGE_BAND_PX * scale) as i32;
+    if cursor.y > (mon_y + band_h) || cursor.y < (mon_y - 20) {
+        return false;
+    }
+
+    let center_x = mon_x + mon_w / 2;
+    let half_span = (260.0 * scale) as i32;
+    cursor.x >= (center_x - half_span) && cursor.x <= (center_x + half_span)
 }
 
 /// True once the cursor has stayed inside the top band long enough to count as
@@ -2492,7 +2517,8 @@ fn update_main_interaction(
                     let rx = win_pos.x + (r.x as f64 * scale) as i32 - pad_x - hyst;
                     let rw = (r.width as f64 * scale) as i32 + (pad_x * 2) + (hyst * 2);
                     let ry_top = (win_pos.y + (r.y as f64 * scale) as i32 - hyst).min(win_pos.y);
-                    let ry_bottom = win_pos.y + ((r.y + r.height) as f64 * scale) as i32 + pad_y_bottom + hyst;
+                    let ry_bottom =
+                        win_pos.y + ((r.y + r.height) as f64 * scale) as i32 + pad_y_bottom + hyst;
 
                     in_notch_rect = cursor.x >= rx
                         && cursor.x <= (rx + rw)
@@ -2608,7 +2634,13 @@ fn setup_top_edge_watchdog(app_handle: AppHandle) {
 
             // Do not skip if window is currently interactive (!main_ignored),
             // or if hover flag is set, or if expiry hasn't elapsed.
-            if pt.x == last_pt.x && pt.y == last_pt.y && enter_ms == 0 && main_ignored && !hover_active && now >= expiry {
+            if pt.x == last_pt.x
+                && pt.y == last_pt.y
+                && enter_ms == 0
+                && main_ignored
+                && !hover_active
+                && now >= expiry
+            {
                 continue;
             }
             last_pt = pt;
@@ -2835,8 +2867,9 @@ unsafe extern "system" fn mouse_hook_proc(
             if !fg_fs {
                 let sc = f32::from_bits(MH_CACHED_MON_SCALE.load(Ordering::Relaxed));
                 let edge_band = ((14.0 * sc) as i32).max(14);
-                let at_left_edge =
-                    cursor.x <= (mon_x + edge_band) && cursor.y >= mon_y && cursor.y <= (mon_y + mon_h);
+                let at_left_edge = cursor.x <= (mon_x + edge_band)
+                    && cursor.y >= mon_y
+                    && cursor.y <= (mon_y + mon_h);
 
                 // The collapsed card extends past the edge band, so once the
                 // edge hover is established, keep it alive while the cursor is
@@ -3105,14 +3138,17 @@ pub fn trigger_app_scan() {
                                                 use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
                                                 let mut shfi: SHFILEINFOW = std::mem::zeroed();
                                                 let res = SHGetFileInfoW(
-                                                    windows::core::PCWSTR(absolute_pidl as *const _),
+                                                    windows::core::PCWSTR(
+                                                        absolute_pidl as *const _,
+                                                    ),
                                                     Default::default(),
                                                     Some(&mut shfi),
                                                     std::mem::size_of::<SHFILEINFOW>() as u32,
                                                     SHGFI_PIDL | SHGFI_ICON | SHGFI_LARGEICON,
                                                 );
                                                 if res != 0 && !shfi.hIcon.is_invalid() {
-                                                    let b64 = crate::utils::icon_to_base64(shfi.hIcon);
+                                                    let b64 =
+                                                        crate::utils::icon_to_base64(shfi.hIcon);
                                                     let _ = DestroyIcon(shfi.hIcon);
                                                     b64
                                                 } else {
@@ -3760,7 +3796,7 @@ pub unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> B
                     let is_browser_pwa = is_browser_host
                         && window_aumid
                             .as_deref()
-                            .map_or(false, crate::commands::is_browser_pwa_aumid);
+                            .is_some_and(crate::commands::is_browser_pwa_aumid);
 
                     let final_name = if ((is_browser_host
                         && (is_browser_pwa || window_aumid.is_none()))

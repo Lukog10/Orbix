@@ -145,7 +145,8 @@ function matchSingleTerm(pattern: string, target: string): FuzzyResult {
 	const subIdx = t.indexOf(p);
 	if (subIdx !== -1) {
 		const isAtBoundary = wbSet.has(subIdx);
-		const score = 420 + (isAtBoundary ? 60 : 0) - Math.min(100, subIdx * 5) - Math.min(80, (tLen - pLen) * 2);
+		const score =
+			420 + (isAtBoundary ? 60 : 0) - Math.min(100, subIdx * 5) - Math.min(80, (tLen - pLen) * 2);
 		const matchedIndices = Array.from({ length: pLen }, (_, i) => subIdx + i);
 		return { matches: true, score, matchedIndices };
 	}

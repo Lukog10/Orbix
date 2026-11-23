@@ -212,12 +212,7 @@ export function PowerView() {
 						>
 							<div className="power-btn-ring-wrapper">
 								<svg className="power-ring-svg" viewBox="0 0 46 46">
-									<circle
-										className="power-ring-track"
-										cx="23"
-										cy="23"
-										r={RADIUS}
-									/>
+									<circle className="power-ring-track" cx="23" cy="23" r={RADIUS} />
 									<circle
 										className="power-ring-progress"
 										cx="23"

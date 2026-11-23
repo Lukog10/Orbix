@@ -1,52 +1,72 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Folder, Image, Clock, FolderPlus, Check, X } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface WallpaperFolderMenuProps {
 	activeFolder: string;
 	isOpen: boolean;
 	onClose: () => void;
 	onSelectFolder: (folderPath: string) => void;
+	onBrowseFolder: () => void;
 }
 
-const RECENT_FOLDERS_KEY = "bloom-wallpaper-recent-folders";
-const MAX_RECENT_FOLDERS = 5;
+export const RECENT_FOLDERS_KEY = "bloom-wallpaper-recent-folders";
+const MAX_RECENT_FOLDERS = 6;
+
+export const getRecentFolders = (): string[] => {
+	try {
+		const raw = localStorage.getItem(RECENT_FOLDERS_KEY);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+};
+
+export const saveRecentFolder = (path: string) => {
+	if (!path || path.toLowerCase() === "c:\\windows\\web\\wallpaper") return;
+	try {
+		const current = getRecentFolders().filter((f) => f.toLowerCase() !== path.toLowerCase());
+		const updated = [path, ...current].slice(0, MAX_RECENT_FOLDERS);
+		localStorage.setItem(RECENT_FOLDERS_KEY, JSON.stringify(updated));
+	} catch {
+		// Ignore storage write errors
+	}
+};
 
 export function WallpaperFolderMenu({
 	activeFolder,
 	isOpen,
 	onClose,
 	onSelectFolder,
+	onBrowseFolder
 }: WallpaperFolderMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
+	const [recentFolders, setRecentFolders] = useState<string[]>([]);
 
-	const getRecentFolders = (): string[] => {
-		try {
-			const raw = localStorage.getItem(RECENT_FOLDERS_KEY);
-			if (!raw) return [];
-			const parsed = JSON.parse(raw);
-			return Array.isArray(parsed) ? parsed : [];
-		} catch {
-			return [];
+	useEffect(() => {
+		if (isOpen) {
+			invoke("set_menu_open", { open: true, rect: null }).catch(() => {});
+			setRecentFolders(getRecentFolders());
+		} else {
+			invoke("set_menu_open", { open: false, rect: null }).catch(() => {});
 		}
-	};
-
-	const saveRecentFolder = (path: string) => {
-		try {
-			const current = getRecentFolders().filter((f) => f.toLowerCase() !== path.toLowerCase());
-			const updated = [path, ...current].slice(0, MAX_RECENT_FOLDERS);
-			localStorage.setItem(RECENT_FOLDERS_KEY, JSON.stringify(updated));
-		} catch {
-			// Ignore storage write errors
-		}
-	};
+		return () => {
+			if (isOpen) {
+				invoke("set_menu_open", { open: false, rect: null }).catch(() => {});
+			}
+		};
+	}, [isOpen]);
 
 	const removeRecentFolder = (e: React.MouseEvent, pathToRemove: string) => {
 		e.stopPropagation();
 		try {
-			const current = getRecentFolders().filter((f) => f !== pathToRemove);
+			const current = getRecentFolders().filter(
+				(f) => f.toLowerCase() !== pathToRemove.toLowerCase()
+			);
 			localStorage.setItem(RECENT_FOLDERS_KEY, JSON.stringify(current));
-			onClose();
+			setRecentFolders(current);
 		} catch {
 			// Ignore
 		}
@@ -56,7 +76,17 @@ export function WallpaperFolderMenu({
 		if (!isOpen) return;
 
 		const handleClickOutside = (e: MouseEvent) => {
-			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+			const target = e.target as HTMLElement;
+			if (
+				target &&
+				(target.closest(".wallpaper-folder-arrow-btn") ||
+					target.closest(".wallpaper-folder-btn") ||
+					target.closest(".wallpaper-folder-split-pill") ||
+					target.closest(".wallpaper-folder-dropdown"))
+			) {
+				return;
+			}
+			if (menuRef.current && !menuRef.current.contains(target)) {
 				onClose();
 			}
 		};
@@ -67,52 +97,68 @@ export function WallpaperFolderMenu({
 
 	if (!isOpen) return null;
 
-	const recentFolders = getRecentFolders();
-
-	const handleBrowseFolder = async () => {
-		try {
-			const selected = await open({
-				directory: true,
-				multiple: false,
-				title: "Select Wallpapers Folder",
-			});
-			if (selected && typeof selected === "string") {
-				saveRecentFolder(selected);
-				onSelectFolder(selected);
-				onClose();
-			}
-		} catch (err) {
-			console.error("Failed to browse folder:", err);
-		}
-	};
-
 	const presets = [
-		{
-			id: "win-web",
-			label: "Windows Wallpapers",
-			path: "C:\\Windows\\Web\\Wallpaper",
-			icon: Image,
-		},
 		{
 			id: "user-pictures",
 			label: "Pictures",
 			path: "",
-			icon: Folder,
+			icon: Folder
 		},
+		{
+			id: "win-web",
+			label: "Windows Wallpapers",
+			path: "C:\\Windows\\Web\\Wallpaper",
+			icon: Image
+		}
 	];
+
+	const isCustomFolderActive =
+		Boolean(activeFolder) && activeFolder.toLowerCase() !== "c:\\windows\\web\\wallpaper";
+
+	const displayRecents = recentFolders.filter(
+		(f) => !activeFolder || f.toLowerCase() !== activeFolder.toLowerCase()
+	);
 
 	return (
 		<div
 			ref={menuRef}
 			className="wallpaper-folder-dropdown"
 			onClick={(e) => e.stopPropagation()}
+			onMouseDown={(e) => e.stopPropagation()}
+			onPointerDown={(e) => e.stopPropagation()}
 		>
-			<div className="wallpaper-menu-section-title">Presets</div>
+			{/* Current Active Custom Folder */}
+			{isCustomFolderActive && (
+				<>
+					<div className="wallpaper-menu-section-title">Current Folder</div>
+					<button
+						type="button"
+						className="wallpaper-menu-item is-selected"
+						onClick={() => {
+							onSelectFolder(activeFolder);
+							onClose();
+						}}
+						title={activeFolder}
+					>
+						<span className="wallpaper-menu-item-left">
+							<Folder size={13} className="wallpaper-menu-item-icon" />
+							<span className="wallpaper-menu-item-text">
+								{activeFolder.split(/[\\/]/).filter(Boolean).pop() || activeFolder}
+							</span>
+						</span>
+						<Check size={12} className="wallpaper-menu-check" />
+					</button>
+					<div className="wallpaper-menu-divider" />
+				</>
+			)}
 
+			{/* Presets */}
+			<div className="wallpaper-menu-section-title">Presets</div>
 			{presets.map((preset) => {
 				const isSelected =
-					activeFolder.toLowerCase() === preset.path.toLowerCase() ||
-					(!activeFolder && preset.path === "");
+					preset.path === ""
+						? !activeFolder
+						: activeFolder.toLowerCase() === preset.path.toLowerCase();
 				const Icon = preset.icon;
 
 				return (
@@ -134,12 +180,13 @@ export function WallpaperFolderMenu({
 				);
 			})}
 
-			{recentFolders.length > 0 && (
+			{/* Recent Folders */}
+			{displayRecents.length > 0 && (
 				<>
 					<div className="wallpaper-menu-divider" />
 					<div className="wallpaper-menu-section-title">Recent Folders</div>
 
-					{recentFolders.map((recentPath) => {
+					{displayRecents.map((recentPath) => {
 						const isSelected = activeFolder.toLowerCase() === recentPath.toLowerCase();
 						const folderName = recentPath.split(/[\\/]/).filter(Boolean).pop() || recentPath;
 
@@ -178,14 +225,18 @@ export function WallpaperFolderMenu({
 
 			<div className="wallpaper-menu-divider" />
 
+			{/* Browse New Folder */}
 			<button
 				type="button"
 				className="wallpaper-menu-item wallpaper-menu-browse-btn"
-				onClick={handleBrowseFolder}
+				onClick={() => {
+					onBrowseFolder();
+					onClose();
+				}}
 			>
 				<span className="wallpaper-menu-item-left">
 					<FolderPlus size={13} className="wallpaper-menu-item-icon" />
-					<span>Browse Folder...</span>
+					<span>Browse New Folder...</span>
 				</span>
 			</button>
 		</div>

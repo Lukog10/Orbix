@@ -1,5 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, memo } from "react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, memo } from "react";
+import { motion, AnimatePresence, Reorder, type Variants } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./Dock.css";
@@ -96,11 +96,28 @@ const ITEM_ENTRY_TRANSITION = {
 const ITEM_INITIAL = { opacity: 0, scale: 0 };
 const ITEM_ANIMATE = { opacity: 1, scale: 1 };
 const ITEM_EXIT = { opacity: 0, scale: 0 };
-const ICON_VARIANTS = {
+const ICON_VARIANTS: Variants = {
 	idle: { y: 0, scale: 1 },
 	hover: { y: -5, scale: 1.1 },
 	drag: { y: -10, scale: 1.1, opacity: 0.8 },
-	tap: { scale: 0.95 }
+	tap: { scale: 0.95 },
+	launching: {
+		y: [0, -14, 0, -8, 0],
+		scale: [1, 1.08, 1, 1.04, 1],
+		transition: {
+			duration: 0.8,
+			repeat: Infinity,
+			ease: "easeInOut" as const
+		}
+	},
+	minimizing: {
+		scale: [1, 0.84, 1.06, 1],
+		y: [0, 6, -2, 0],
+		transition: {
+			duration: 0.38,
+			ease: "easeOut" as const
+		}
+	}
 };
 
 // One dot per open window, capped at three.
@@ -194,6 +211,32 @@ const Dock = memo(function Dock() {
 	const [popupBottom, setPopupBottom] = useState(56);
 	const pinnedItemsRef = useRef<AppInfo[]>([]);
 	const handleAppClickRef = useRef<(app: AppInfo) => void>(() => {});
+	const [launchingApps, setLaunchingApps] = useState<Set<string>>(() => new Set());
+	const [minimizingApps, setMinimizingApps] = useState<Set<string>>(() => new Set());
+
+	const triggerLaunchAnimation = useCallback((key: string) => {
+		setLaunchingApps((prev) => new Set(prev).add(key));
+		setTimeout(() => {
+			setLaunchingApps((prev) => {
+				if (!prev.has(key)) return prev;
+				const next = new Set(prev);
+				next.delete(key);
+				return next;
+			});
+		}, 2800);
+	}, []);
+
+	const triggerMinimizeAnimation = useCallback((key: string) => {
+		setMinimizingApps((prev) => new Set(prev).add(key));
+		setTimeout(() => {
+			setMinimizingApps((prev) => {
+				if (!prev.has(key)) return prev;
+				const next = new Set(prev);
+				next.delete(key);
+				return next;
+			});
+		}, 420);
+	}, []);
 	const [scale, setScale] = useState(() => {
 		const dockScale = localStorage.getItem("bloom-dock-scale");
 		if (dockScale !== null) return parseFloat(dockScale);
@@ -517,6 +560,22 @@ const Dock = memo(function Dock() {
 		};
 	}, [isDragging, pinnedApps]);
 
+	useEffect(() => {
+		if (launchingApps.size === 0) return;
+		setLaunchingApps((prev) => {
+			let changed = false;
+			const next = new Set(prev);
+			for (const key of prev) {
+				const isNowRunning = activeApps.some((a) => itemKey(a) === key && a.is_running);
+				if (isNowRunning) {
+					next.delete(key);
+					changed = true;
+				}
+			}
+			return changed ? next : prev;
+		});
+	}, [activeApps, launchingApps.size]);
+
 	const fetchIcon = async (path: string, name?: string, hwnd?: number, retryCount = 0) => {
 		const isHost = isBrowserHost(path);
 		const cacheKey =
@@ -626,6 +685,7 @@ const Dock = memo(function Dock() {
 	};
 
 	const handleAppClick = async (app: AppInfo) => {
+		const key = itemKey(app);
 		try {
 			if (app.path === "start") {
 				await invoke("open_app", { appName: "start" });
@@ -635,8 +695,12 @@ const Dock = memo(function Dock() {
 				// Several windows: bring the most recent forward, then cycle.
 				await invoke("focus_app_windows", { hwnds: app.all_hwnds.map(([hwnd]) => hwnd) });
 			} else if (app.hwnd) {
-				await invoke("focus_window", { hwnd: app.hwnd });
+				const action = await invoke<string>("focus_window", { hwnd: app.hwnd });
+				if (action === "minimized") {
+					triggerMinimizeAnimation(key);
+				}
 			} else {
+				triggerLaunchAnimation(key);
 				await invoke("open_app", { appName: app.path });
 			}
 		} catch (e) {
@@ -648,6 +712,7 @@ const Dock = memo(function Dock() {
 	const handleNewInstance = async (app: AppInfo) => {
 		if (!app || app.path === "start") return;
 		try {
+			triggerLaunchAnimation(itemKey(app));
 			await invoke("launch_new_instance", { appPath: app.path, appName: app.name });
 		} catch (e) {
 			console.error(`Failed to launch a new instance of ${app.name}:`, e);
@@ -1328,16 +1393,20 @@ const Dock = memo(function Dock() {
 													<div className="tooltip">{app.name}</div>
 												)}
 												<motion.div
-													className="dock-icon"
+													className={`dock-icon${launchingApps.has(itemKey(app)) ? " is-launching" : ""}${minimizingApps.has(itemKey(app)) ? " is-minimizing" : ""}`}
 													variants={ICON_VARIANTS}
 													animate={
-														pressedApp === itemKey(app)
-															? "tap"
-															: isDragging && !app.is_pinned
-																? "idle"
-																: hoveredApp === itemKey(app) && !isDragging
-																	? "hover"
-																	: "idle"
+														launchingApps.has(itemKey(app))
+															? "launching"
+															: minimizingApps.has(itemKey(app))
+																? "minimizing"
+																: pressedApp === itemKey(app)
+																	? "tap"
+																	: isDragging && !app.is_pinned
+																		? "idle"
+																		: hoveredApp === itemKey(app) && !isDragging
+																			? "hover"
+																			: "idle"
 													}
 													whileDrag="drag"
 													onPointerDown={() => setPressedApp(itemKey(app))}
@@ -1364,8 +1433,10 @@ const Dock = memo(function Dock() {
 
 														const isBloomOrSettings =
 															app.name.toLowerCase() === "settings" ||
-															app.name.toLowerCase() === "orbix" || app.name.toLowerCase() === "bloom" ||
-															app.path.toLowerCase().includes("orbix.exe") || app.path.toLowerCase().includes("bloom.exe");
+															app.name.toLowerCase() === "orbix" ||
+															app.name.toLowerCase() === "bloom" ||
+															app.path.toLowerCase().includes("orbix.exe") ||
+															app.path.toLowerCase().includes("bloom.exe");
 
 														return icon ? (
 															<img
@@ -1490,14 +1561,18 @@ const Dock = memo(function Dock() {
 											<div className="tooltip">{app.name}</div>
 										)}
 										<motion.div
-											className="dock-icon"
+											className={`dock-icon${launchingApps.has(itemKey(app)) ? " is-launching" : ""}${minimizingApps.has(itemKey(app)) ? " is-minimizing" : ""}`}
 											variants={ICON_VARIANTS}
 											animate={
-												pressedApp === itemKey(app)
-													? "tap"
-													: hoveredApp === itemKey(app) && !isDragging
-														? "hover"
-														: "idle"
+												launchingApps.has(itemKey(app))
+													? "launching"
+													: minimizingApps.has(itemKey(app))
+														? "minimizing"
+														: pressedApp === itemKey(app)
+															? "tap"
+															: hoveredApp === itemKey(app) && !isDragging
+																? "hover"
+																: "idle"
 											}
 											onPointerDown={() => setPressedApp(itemKey(app))}
 											onPointerUp={() => setPressedApp(null)}
@@ -1522,8 +1597,10 @@ const Dock = memo(function Dock() {
 													app.icon;
 												const isBloomOrSettings =
 													app.name.toLowerCase() === "settings" ||
-													app.name.toLowerCase() === "orbix" || app.name.toLowerCase() === "bloom" ||
-													app.path.toLowerCase().includes("orbix.exe") || app.path.toLowerCase().includes("bloom.exe");
+													app.name.toLowerCase() === "orbix" ||
+													app.name.toLowerCase() === "bloom" ||
+													app.path.toLowerCase().includes("orbix.exe") ||
+													app.path.toLowerCase().includes("bloom.exe");
 												return icon ? (
 													<img
 														src={icon}

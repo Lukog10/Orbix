@@ -1,6 +1,4 @@
-﻿
-
-export function EthernetIcon({ size = 15, className = "" }: { size?: number; className?: string }) {
+﻿export function EthernetIcon({ size = 15, className = "" }: { size?: number; className?: string }) {
 	return (
 		<svg
 			width={size}
@@ -57,4 +55,3 @@ export function SignalBarsIcon({ percent, size = 14 }: { percent: number; size?:
 		</svg>
 	);
 }
-

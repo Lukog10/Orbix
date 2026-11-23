@@ -896,7 +896,7 @@ pub async fn get_active_windows() -> Vec<AppInfo> {
 }
 
 #[tauri::command]
-pub async fn focus_window(hwnd: isize) {
+pub async fn focus_window(hwnd: isize) -> String {
     tauri::async_runtime::spawn_blocking(move || unsafe {
         use windows::Win32::UI::WindowsAndMessaging::{
             GetForegroundWindow, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
@@ -909,9 +909,11 @@ pub async fn focus_window(hwnd: isize) {
             let _ = ShowWindow(hwnd, SW_SHOW);
             let _ = ShowWindow(hwnd, SW_RESTORE);
             let _ = SetForegroundWindow(hwnd);
+            "restored".to_string()
         } else if IsIconic(hwnd).as_bool() {
             let _ = ShowWindow(hwnd, SW_RESTORE);
             let _ = SetForegroundWindow(hwnd);
+            "restored".to_string()
         } else {
             // Minimize if: window is foreground, OR same process as foreground (not Bloom), OR recently focused
             let fg = GetForegroundWindow();
@@ -947,13 +949,15 @@ pub async fn focus_window(hwnd: isize) {
 
             if should_minimize {
                 let _ = ShowWindow(hwnd, SW_MINIMIZE);
+                "minimized".to_string()
             } else {
                 let _ = SetForegroundWindow(hwnd);
+                "focused".to_string()
             }
         }
     })
     .await
-    .unwrap_or_default();
+    .unwrap_or_else(|_| "done".to_string())
 }
 
 /// Brings one window of a multi-window dock item forward, like the taskbar's
@@ -2882,7 +2886,11 @@ fn re_register_appbars(app: &AppHandle, settings: &HashMap<String, serde_json::V
 }
 
 #[tauri::command]
-pub async fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Result<(), String> {
+pub async fn save_setting(
+    app: AppHandle,
+    key: String,
+    value: serde_json::Value,
+) -> Result<(), String> {
     let path = app
         .path()
         .app_config_dir()
@@ -2906,7 +2914,9 @@ pub async fn save_setting(app: AppHandle, key: String, value: serde_json::Value)
         }
         let mut settings = HashMap::new();
         if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(existing) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
+            if let Ok(existing) =
+                serde_json::from_str::<HashMap<String, serde_json::Value>>(&content)
+            {
                 settings = existing;
             }
         }
@@ -2922,7 +2932,10 @@ pub async fn save_setting(app: AppHandle, key: String, value: serde_json::Value)
             serde_json::json!({ "key": &key_clone, "value": &value_clone }),
         );
 
-        if key_clone == "bloom-scale" || key_clone == "bloom-notch-scale" || key_clone == "bloom-dock-scale" {
+        if key_clone == "bloom-scale"
+            || key_clone == "bloom-notch-scale"
+            || key_clone == "bloom-dock-scale"
+        {
             re_register_appbars(&app_clone, &settings);
         }
     })
@@ -3011,7 +3024,8 @@ pub async fn capture_window_thumbnail(
                     if guard.len() > 15 {
                         guard.retain(|&k, _| IsWindow(Some(HWND(k as *mut _))).as_bool());
                         if guard.len() > 15 {
-                            let mut entries: Vec<(isize, i64)> = guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
+                            let mut entries: Vec<(isize, i64)> =
+                                guard.iter().map(|(&k, (_, ts))| (k, *ts)).collect();
                             entries.sort_by_key(|e| e.1);
                             let to_remove = guard.len() - 15;
                             for (old_k, _) in entries.into_iter().take(to_remove) {
@@ -3181,7 +3195,8 @@ pub fn get_wlan_connection_info_sync() -> (bool, String) {
                     if result == 0 && !data.is_null() {
                         connected = true;
                         let attr = &*(data as *const WLAN_CONNECTION_ATTRIBUTES);
-                        let ssid_len = attr.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
+                        let ssid_len =
+                            attr.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
                         if ssid_len > 0 {
                             let len = ssid_len.min(32);
                             let bytes = &attr.wlanAssociationAttributes.dot11Ssid.ucSSID[..len];
@@ -3207,7 +3222,7 @@ pub fn get_wlan_connection_info_sync() -> (bool, String) {
 pub fn get_wlan_status_fast() -> (bool, bool, String) {
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::NetworkManagement::WiFi::{
-        wlan_intf_opcode_current_connection, wlan_interface_state_not_ready, WlanCloseHandle,
+        wlan_interface_state_not_ready, wlan_intf_opcode_current_connection, WlanCloseHandle,
         WlanEnumInterfaces, WlanFreeMemory, WlanOpenHandle, WlanQueryInterface,
         WLAN_CONNECTION_ATTRIBUTES, WLAN_INTERFACE_INFO_LIST,
     };
@@ -3249,7 +3264,8 @@ pub fn get_wlan_status_fast() -> (bool, bool, String) {
                     if result == 0 && !data.is_null() {
                         connected = true;
                         let attr = &*(data as *const WLAN_CONNECTION_ATTRIBUTES);
-                        let ssid_len = attr.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
+                        let ssid_len =
+                            attr.wlanAssociationAttributes.dot11Ssid.uSSIDLength as usize;
                         if ssid_len > 0 {
                             let len = ssid_len.min(32);
                             let bytes = &attr.wlanAssociationAttributes.dot11Ssid.ucSSID[..len];
@@ -3496,7 +3512,8 @@ pub fn open_battery_saver_settings() {
     }
 }
 
-static AIRPLANE_MODE_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static AIRPLANE_MODE_ENABLED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 const CLSID_RADIO_MANAGEMENT_API: windows::core::GUID =
     windows::core::GUID::from_u128(0x581333f6_28db_41be_bc7a_ff201f12f3f6);
@@ -3589,10 +3606,10 @@ fn set_system_radio_state_com(airplane_mode: bool) -> Result<(), String> {
 }
 
 fn get_airplane_mode_registry() -> Option<bool> {
+    use windows::core::w;
     use windows::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_LOCAL_MACHINE, KEY_READ,
     };
-    use windows::core::w;
     unsafe {
         let mut hkey = windows::Win32::System::Registry::HKEY::default();
         if RegOpenKeyExW(
@@ -3675,7 +3692,9 @@ fn get_battery_saver_state_sync() -> bool {
         .output()
     {
         let text = String::from_utf8_lossy(&output.stdout);
-        return text.to_lowercase().contains("a1841308-3541-4fab-bc81-f71556f20b4a")
+        return text
+            .to_lowercase()
+            .contains("a1841308-3541-4fab-bc81-f71556f20b4a")
             || text.to_lowercase().contains("power saver");
     }
     false
@@ -3700,8 +3719,10 @@ pub fn toggle_battery_saver() -> Result<bool, String> {
 
 #[tauri::command]
 pub fn get_dnd_state() -> Result<bool, String> {
-    use windows::Win32::System::Registry::{RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ};
     use windows::core::w;
+    use windows::Win32::System::Registry::{
+        RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
+    };
 
     unsafe {
         let mut key = HKEY::default();
@@ -3710,7 +3731,14 @@ pub fn get_dnd_state() -> Result<bool, String> {
             let val_name = w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
             let mut val: u32 = 1;
             let mut size = std::mem::size_of::<u32>() as u32;
-            let res = RegQueryValueExW(key, val_name, None, None, Some(&mut val as *mut u32 as *mut u8), Some(&mut size));
+            let res = RegQueryValueExW(
+                key,
+                val_name,
+                None,
+                None,
+                Some(&mut val as *mut u32 as *mut u8),
+                Some(&mut size),
+            );
             let _ = windows::Win32::System::Registry::RegCloseKey(key);
             if res.is_ok() {
                 return Ok(val == 0);
@@ -3722,8 +3750,11 @@ pub fn get_dnd_state() -> Result<bool, String> {
 
 #[tauri::command]
 pub fn toggle_dnd_state() -> Result<bool, String> {
-    use windows::Win32::System::Registry::{RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_ALL_ACCESS, REG_DWORD, REG_OPTION_NON_VOLATILE};
     use windows::core::w;
+    use windows::Win32::System::Registry::{
+        RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_ALL_ACCESS, REG_DWORD,
+        REG_OPTION_NON_VOLATILE,
+    };
 
     let current = get_dnd_state().unwrap_or(false);
     let next_dnd = !current;
@@ -3742,18 +3773,25 @@ pub fn toggle_dnd_state() -> Result<bool, String> {
             None,
             &mut key,
             None,
-        ).is_ok() {
+        )
+        .is_ok()
+        {
             let val_name = w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
             let _ = RegSetValueExW(
                 key,
                 val_name,
                 Some(0),
                 REG_DWORD,
-                Some(std::slice::from_raw_parts(&toasts_enabled as *const u32 as *const u8, 4)),
+                Some(std::slice::from_raw_parts(
+                    &toasts_enabled as *const u32 as *const u8,
+                    4,
+                )),
             );
             let _ = windows::Win32::System::Registry::RegCloseKey(key);
 
-            use windows::Win32::UI::WindowsAndMessaging::{SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE};
+            use windows::Win32::UI::WindowsAndMessaging::{
+                SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+            };
             let _ = SendMessageTimeoutW(
                 HWND_BROADCAST,
                 WM_SETTINGCHANGE,
@@ -3797,7 +3835,11 @@ pub fn toggle_ethernet_state() -> Result<bool, String> {
     let connected = is_ethernet_connected_sync();
     use std::os::windows::process::CommandExt;
     use std::process::Command;
-    let action = if connected { "admin=disable" } else { "admin=enable" };
+    let action = if connected {
+        "admin=disable"
+    } else {
+        "admin=enable"
+    };
     let _ = Command::new("netsh")
         .args(["interface", "set", "interface", "Ethernet", action])
         .creation_flags(0x08000000)
@@ -3808,7 +3850,9 @@ pub fn toggle_ethernet_state() -> Result<bool, String> {
 #[tauri::command]
 pub fn get_audio_devices() -> Result<crate::types::AudioDeviceStatus, String> {
     use windows::Win32::Media::Audio::IMMDeviceEnumerator;
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+    };
 
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -4225,8 +4269,10 @@ pub fn setup_settings_watcher(app: AppHandle) {
 
             let mut notify_buffer = [0u8; 4096];
             let mut bytes_returned = 0u32;
-            let mut overlapped = OVERLAPPED::default();
-            overlapped.hEvent = h_event;
+            let mut overlapped = OVERLAPPED {
+                hEvent: h_event,
+                ..Default::default()
+            };
 
             loop {
                 let success = ReadDirectoryChangesW(
@@ -4666,9 +4712,7 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string();
-                    if file_name.starts_with('.')
-                        || file_name.eq_ignore_ascii_case("desktop.ini")
-                    {
+                    if file_name.starts_with('.') || file_name.eq_ignore_ascii_case("desktop.ini") {
                         continue;
                     }
 
@@ -4707,13 +4751,14 @@ pub async fn search_user_files(query: String) -> Vec<SearchFileItem> {
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string();
-                    if file_name.starts_with('.')
-                        || file_name.eq_ignore_ascii_case("desktop.ini")
-                    {
+                    if file_name.starts_with('.') || file_name.eq_ignore_ascii_case("desktop.ini") {
                         continue;
                     }
 
-                    let clean_name = file_name.strip_suffix(".lnk").unwrap_or(&file_name).to_string();
+                    let clean_name = file_name
+                        .strip_suffix(".lnk")
+                        .unwrap_or(&file_name)
+                        .to_string();
                     if fuzzy_match_simple(&query_lower, &clean_name) {
                         results.push(SearchFileItem {
                             name: clean_name,
@@ -4747,7 +4792,11 @@ pub async fn get_internet_status() -> Result<InternetStatus, String> {
         let (connection_type, label, is_connected) = if ethernet_connected {
             ("ethernet".to_string(), "Ethernet".to_string(), true)
         } else if wifi_connected {
-            let display_ssid = if ssid.is_empty() { "Wi-Fi".to_string() } else { ssid };
+            let display_ssid = if ssid.is_empty() {
+                "Wi-Fi".to_string()
+            } else {
+                ssid
+            };
             ("wifi".to_string(), display_ssid, true)
         } else {
             ("offline".to_string(), "No internet".to_string(), false)
@@ -4795,7 +4844,8 @@ pub async fn get_available_wifi_networks() -> Result<Vec<WifiNetworkEntry>, Stri
                 if let Some(idx) = trimmed.find(':') {
                     let ssid = trimmed[idx + 1..].trim().to_string();
                     if !ssid.is_empty() {
-                        let is_conn = !current_ssid.is_empty() && ssid.eq_ignore_ascii_case(&current_ssid);
+                        let is_conn =
+                            !current_ssid.is_empty() && ssid.eq_ignore_ascii_case(&current_ssid);
                         current_entry = Some(WifiNetworkEntry {
                             ssid,
                             signal_percent: 50,
